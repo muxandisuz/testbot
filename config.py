@@ -5,10 +5,15 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from dotenv import dotenv_values, load_dotenv, set_key
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent
 ENV_PATH = BASE_DIR / ".env"
+
+
+def _default_host() -> str:
+    return "0.0.0.0" if ("RAILWAY_ENVIRONMENT" in os.environ or "PORT" in os.environ) else "127.0.0.1"
 
 
 class Settings(BaseSettings):
@@ -17,7 +22,7 @@ class Settings(BaseSettings):
     bot_token: str = ""
     admin_ids: str = "123456789"
     database_path: str = "quiz_bot.db"
-    host: str = "127.0.0.1"
+    host: str = Field(default_factory=_default_host)
     port: int = 8000
 
     model_config = SettingsConfigDict(

@@ -8,6 +8,7 @@ import sys
 import uvicorn
 
 from config import get_settings
+from web.app import app
 
 
 def _configure_logging() -> None:
@@ -27,16 +28,22 @@ def _configure_logging() -> None:
     )
 
 
+_configure_logging()
+
+
 def main() -> None:
     _configure_logging()
     settings = get_settings()
     uvicorn.run(
-        "web.app:app",
+        app,
         host=settings.host,
         port=settings.port,
         reload=False,
         log_level="info",
     )
+
+
+__all__ = ["app", "main"]
 
 
 if __name__ == "__main__":
