@@ -99,6 +99,16 @@ async def test_test_ishlash_shows_test_name_and_runs_sequential_with_early_exit(
     assert quiz_2000 is not None
     questions = await db.list_questions(int(quiz_2000["id"]), db_path=db_file)
     att_id = int(q1_resp.keyboard[0][0]["callback_data"].split(":")[2])
+    q1_corr = questions[0]["correct_option"]
+    assert any(
+        line.startswith(f"<b>{q1_corr})</b>") and line.endswith(" ✅")
+        for line in q1_resp.text.splitlines()
+    )
+    assert any(
+        b["callback_data"].endswith(f":{q1_corr}") and b["text"].endswith(" ✅")
+        for row in q1_resp.keyboard
+        for b in row
+    )
 
     # Answer Q1 wrong -> instant wrong feedback + Next + Exit buttons
     wrong_opt = "A" if questions[0]["correct_option"] != "A" else "B"

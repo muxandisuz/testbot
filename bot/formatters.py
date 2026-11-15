@@ -163,6 +163,7 @@ def build_question_text(
     ]
 
     option_lines: list[str] = []
+    corr_letter = (question.get("correct_option") or "").strip().upper()
     for letter, opt_text in opts:
         marker = ""
         if practice_feedback is not None:
@@ -174,7 +175,8 @@ def build_question_text(
                 marker = "❌ "
         elif mode == "exam" and selected_option == letter:
             marker = "🔵 "
-        option_lines.append(f"{marker}<b>{letter})</b> {esc(opt_text)}")
+        suffix = " ✅" if letter == corr_letter else ""
+        option_lines.append(f"{marker}<b>{letter})</b> {esc(opt_text)}{suffix}")
 
     body = (
         "━━━━━━━━━━━━━━━━━━━━\n"

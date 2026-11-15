@@ -419,10 +419,11 @@ function renderWebRunner() {
         cls += " selected";
       }
       const disabled = isPractice && fb ? "disabled" : "";
+      const isCorrOpt = letter === q.correct_option;
       return `
         <button class="${cls}" ${disabled} onclick="webSelectOption(${q.id}, '${letter}')">
           <span class="opt-letter">${letter}</span>
-          <span>${escapeHtml(text)}</span>
+          <span>${escapeHtml(text)}${isCorrOpt ? " ✅" : ""}</span>
         </button>`;
     })
     .join("");

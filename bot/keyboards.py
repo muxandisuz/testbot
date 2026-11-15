@@ -82,11 +82,11 @@ def quiz_info_keyboard(quiz_id: int, category_id: int, question_count: int) -> K
     return rows
 
 
-def _short_opt_label(letter: str, text: str, prefix: str = "") -> str:
+def _short_opt_label(letter: str, text: str, prefix: str = "", suffix: str = "") -> str:
     clean = (text or "").strip().replace("\n", " ")
     if len(clean) > 16:
         clean = clean[:15] + "…"
-    return f"{prefix}{letter}) {clean}"
+    return f"{prefix}{letter}) {clean}{suffix}"
 
 
 def question_keyboard(
@@ -109,6 +109,7 @@ def question_keyboard(
             rows.append([btn("🏁 Testni yakunlash va natijani ko'rish", f"qz:fc:{attempt_id}")])
         return rows
 
+    corr_letter = (question.get("correct_option") or "").strip().upper()
     opt_map = [
         ("A", question["option_a"]),
         ("B", question["option_b"]),
@@ -119,7 +120,11 @@ def question_keyboard(
     row2: list[ButtonSpec] = []
     for idx_opt, (letter, text) in enumerate(opt_map):
         prefix = "🔵 " if (mode == "exam" and selected_option == letter) else ""
-        b = btn(_short_opt_label(letter, text, prefix=prefix), f"qz:a:{attempt_id}:{q_id}:{letter}")
+        suffix = " ✅" if letter == corr_letter else ""
+        b = btn(
+            _short_opt_label(letter, text, prefix=prefix, suffix=suffix),
+            f"qz:a:{attempt_id}:{q_id}:{letter}",
+        )
         if idx_opt < 2:
             row1.append(b)
         else:

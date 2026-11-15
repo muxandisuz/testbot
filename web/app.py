@@ -265,7 +265,6 @@ async def api_web_quiz_start(payload: WebQuizStart) -> dict[str, Any]:
 
     user = await db.get_or_create_user(payload.telegram_id, payload.full_name, "web_user")
     attempt = await db.create_attempt(int(user["id"]), payload.quiz_id, mode=payload.mode)
-    # Strip correct_option & explanation in exam mode until finish
     safe_questions = []
     for q in questions:
         safe_questions.append({
@@ -275,6 +274,7 @@ async def api_web_quiz_start(payload: WebQuizStart) -> dict[str, Any]:
             "option_b": q["option_b"],
             "option_c": q["option_c"],
             "option_d": q["option_d"],
+            "correct_option": q["correct_option"],
             "points": q["points"],
             "order_num": q["order_num"],
         })
