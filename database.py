@@ -144,7 +144,7 @@ async def init_db(db_path: Path | str | None = None) -> None:
 
 
 async def cleanup_legacy_non_falsafa_data(db_path: Path | str | None = None) -> None:
-    """Remove legacy non-Falsafa categories/quizzes and split Falsafa sub-quizzes if present."""
+    """Remove legacy non-Falsafa categories/quizzes, fake demo users, and 0-answer practice attempts."""
     legacy_codes = (
         "1001", "1002", "1003", "1004", "1005", "1006",
         "2001", "2002", "2003", "2004", "2005", "2006",
@@ -165,37 +165,51 @@ async def cleanup_legacy_non_falsafa_data(db_path: Path | str | None = None) -> 
             f"DELETE FROM categories WHERE name IN ({','.join('?' for _ in legacy_categories)})",
             legacy_categories,
         )
+        await db.execute(
+            """
+            DELETE FROM users
+            WHERE telegram_id IN (700001, 700002, 700003, 700004, 700005, 999000111)
+               OR username IN (
+                   'sardor_dev', 'malika_edu', 'jasur_math', 'jasur_f',
+                   'dilnoza_eng', 'dilnoza_f', 'aziz_iq', 'aziz_f',
+                   'demo_user', 'simulator_user', 'web_user'
+               )
+            """
+        )
+        await db.execute(
+            """
+            DELETE FROM attempts
+            WHERE mode = 'practice' AND is_completed = 1 AND correct_count = 0 AND wrong_count = 0
+            """
+        )
+        await db.execute(
+            """
+            UPDATE users
+            SET tests_completed = (
+                    SELECT COUNT(*) FROM attempts a
+                    WHERE a.user_id = users.id AND a.is_completed = 1
+                ),
+                correct_answers = (
+                    SELECT COALESCE(SUM(a.correct_count), 0) FROM attempts a
+                    WHERE a.user_id = users.id AND a.is_completed = 1
+                ),
+                total_questions = (
+                    SELECT COALESCE(SUM(
+                        CASE WHEN a.mode = 'practice' THEN (a.correct_count + a.wrong_count)
+                             ELSE (a.correct_count + a.wrong_count + a.skipped_count)
+                        END
+                    ), 0)
+                    FROM attempts a
+                    WHERE a.user_id = users.id AND a.is_completed = 1
+                )
+            """
+        )
         await db.commit()
 
 
 async def seed_database(db_path: Path | str | None = None) -> None:
-    """Populate initial sample leaderboard users if the users table is empty."""
-    async with get_db(db_path) as db:
-        cursor = await db.execute("SELECT COUNT(*) AS cnt FROM users")
-        row = await cursor.fetchone()
-        if row and row["cnt"] > 0:
-            return
-
-        now = _utc_now_iso()
-        sample_users = [
-            (700001, "Sardorbek Alimov", "sardor_dev", 740, 9, 68, 72),
-            (700002, "Malika Karimova", "malika_edu", 520, 7, 50, 56),
-            (700003, "Jasurbek Toshmatov", "jasur_f", 380, 5, 36, 40),
-            (700004, "Dilnoza Raximova", "dilnoza_f", 210, 3, 20, 24),
-            (700005, "Azizbek Nurmatov", "aziz_f", 120, 2, 12, 16),
-        ]
-        for tg_id, full_name, uname, xp, tests, correct, total in sample_users:
-            await db.execute(
-                """
-                INSERT INTO users (
-                    telegram_id, full_name, username, xp, tests_completed,
-                    correct_answers, total_questions, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (tg_id, full_name, uname, xp, tests, correct, total, now),
-            )
-
-        await db.commit()
+    """No-op: fake sample users are disabled."""
+    return
 
 
 async def ensure_falsafa_seeded(db_path: Path | str | None = None) -> None:
@@ -317,15 +331,15 @@ async def get_user_stats(telegram_id: int, db_path: Path | str | None = None) ->
         user = dict(row)
 
         rank_cur = await db.execute(
-            "SELECT COUNT(*) + 1 AS rank_pos FROM users WHERE xp > ? OR (xp = ? AND id < ?)",
+            "SELECT COUNT(*) + 1 AS rank_pos FROM users WHERE telegram_id != 999000111 AND (xp > ? OR (xp = ? AND id < ?))",
             (user["xp"], user["xp"], user["id"]),
         )
         rank_row = await rank_cur.fetchone()
         user["rank_pos"] = int(rank_row["rank_pos"]) if rank_row else 1
 
-        total_users_cur = await db.execute("SELECT COUNT(*) AS cnt FROM users")
+        total_users_cur = await db.execute("SELECT COUNT(*) AS cnt FROM users WHERE telegram_id != 999000111")
         total_users_row = await total_users_cur.fetchone()
-        user["total_users"] = int(total_users_row["cnt"]) if total_users_row else 1
+        user["total_users"] = max(1, int(total_users_row["cnt"]) if total_users_row else 1)
 
         tq = user["total_questions"] or 0
         user["accuracy"] = round((user["correct_answers"] / tq) * 100, 1) if tq > 0 else 0.0
@@ -357,6 +371,7 @@ async def get_leaderboard(
                 """
                 SELECT id, telegram_id, full_name, username, xp, tests_completed, correct_answers, total_questions
                 FROM users
+                WHERE telegram_id != 999000111 AND (xp > 0 OR tests_completed > 0)
                 ORDER BY xp DESC, tests_completed DESC, id ASC
                 LIMIT ?
                 """,
@@ -382,7 +397,7 @@ async def get_leaderboard(
             FROM attempts a
             JOIN users u ON u.id = a.user_id
             JOIN quizzes q ON q.id = a.quiz_id
-            WHERE a.is_completed = 1 AND q.category_id = ?
+            WHERE a.is_completed = 1 AND q.category_id = ? AND u.telegram_id != 999000111
             GROUP BY u.id
             ORDER BY category_score DESC, avg_percentage DESC, category_tests DESC
             LIMIT ?
@@ -953,8 +968,8 @@ async def finalize_attempt(
 
         total_q = len(questions)
         answered_count = correct_count + wrong_count
-        is_early_practice = attempt["mode"] == "practice" and answered_count > 0
-        evaluated_q = answered_count if is_early_practice else total_q
+        is_practice = attempt["mode"] == "practice"
+        evaluated_q = answered_count if is_practice else total_q
         percentage = round((correct_count / evaluated_q) * 100, 1) if evaluated_q > 0 else 0.0
 
         now_dt = datetime.now(timezone.utc)
@@ -991,16 +1006,17 @@ async def finalize_attempt(
 
         bonus_xp = 20 if percentage >= 80 and evaluated_q > 0 else 0
         earned_xp = score + bonus_xp
+        tests_inc = 1 if evaluated_q > 0 else 0
         await db.execute(
             """
             UPDATE users
             SET xp = xp + ?,
-                tests_completed = tests_completed + 1,
+                tests_completed = tests_completed + ?,
                 correct_answers = correct_answers + ?,
                 total_questions = total_questions + ?
             WHERE id = ?
             """,
-            (earned_xp, correct_count, evaluated_q, attempt["user_id"]),
+            (earned_xp, tests_inc, correct_count, evaluated_q, attempt["user_id"]),
         )
         await db.commit()
 
@@ -1065,8 +1081,9 @@ async def get_dashboard_stats(db_path: Path | str | None = None) -> dict[str, An
     """Return aggregated metrics and recent completed attempts for the Web Dashboard."""
     async with get_db(db_path) as db:
         counts = {}
+        u_cur = await db.execute("SELECT COUNT(*) AS cnt FROM users WHERE telegram_id != 999000111")
+        counts["users_count"] = int((await u_cur.fetchone())["cnt"])
         for key, table in [
-            ("users_count", "users"),
             ("categories_count", "categories"),
             ("quizzes_count", "quizzes"),
             ("questions_count", "questions"),
@@ -1078,9 +1095,12 @@ async def get_dashboard_stats(db_path: Path | str | None = None) -> dict[str, An
             """
             SELECT
                 COUNT(*) AS completed_attempts,
-                COALESCE(ROUND(AVG(percentage), 1), 0.0) AS avg_percentage
-            FROM attempts
-            WHERE is_completed = 1
+                COALESCE(ROUND(AVG(a.percentage), 1), 0.0) AS avg_percentage
+            FROM attempts a
+            JOIN users u ON u.id = a.user_id
+            WHERE a.is_completed = 1
+              AND u.telegram_id != 999000111
+              AND NOT (a.mode = 'practice' AND a.correct_count = 0 AND a.wrong_count = 0)
             """
         )
         att_row = await att_cur.fetchone()
@@ -1101,6 +1121,8 @@ async def get_dashboard_stats(db_path: Path | str | None = None) -> dict[str, An
             JOIN users u ON u.id = a.user_id
             JOIN quizzes q ON q.id = a.quiz_id
             WHERE a.is_completed = 1
+              AND u.telegram_id != 999000111
+              AND NOT (a.mode = 'practice' AND a.correct_count = 0 AND a.wrong_count = 0)
             ORDER BY a.finished_at DESC, a.id DESC
             LIMIT 10
             """

@@ -36,9 +36,10 @@ async def test_falsafa_only_seed_cleanup_and_html_escaping(tmp_path: Path) -> No
     assert quizzes[0]["code"] == "2000"
     assert quizzes[0]["title"] == "Falsafa"
     assert quizzes[0]["question_count"] == 175
-    assert len(leaders) == 5
+    assert len(leaders) == 0
 
-    # Verify legacy categories and split sub-quizzes get cleaned up automatically on init_db
+    # Verify legacy categories, split sub-quizzes, and fake users get cleaned up automatically on init_db
+    await db.get_or_create_user(700001, "Sardorbek Alimov", "sardor_dev", db_path=db_file)
     old_cat = await db.create_category("Matematika", "📐", "Eski fan", db_path=db_file)
     await db.create_quiz(int(old_cat["id"]), "Algebra", code="1001", db_path=db_file)
     await db.create_quiz(int(cats[0]["id"]), "Falsafa 1-qism", code="2001", db_path=db_file)
@@ -47,6 +48,7 @@ async def test_falsafa_only_seed_cleanup_and_html_escaping(tmp_path: Path) -> No
     assert len(cats_after) == 1
     assert await db.get_quiz_by_code("1001", db_path=db_file) is None
     assert await db.get_quiz_by_code("2001", db_path=db_file) is None
+    assert await db.get_user_stats(700001, db_path=db_file) is None
 
     # Verify HTML angle brackets in questions/options are escaped cleanly
     falsafa_cat = cats_after[0]
