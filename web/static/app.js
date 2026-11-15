@@ -3,6 +3,9 @@
 const state = {
   categories: [],
   quizzes: [],
+  users: [],
+  editorQuestions: [],
+  authUsername: null,
   activeCategoryFilter: null,
   selectedQuizId: null,
   simAwaitingInput: null,
@@ -22,12 +25,26 @@ function showGlobalToast(msg, duration = 3000) {
   el._timer = setTimeout(() => el.classList.add("hidden"), duration);
 }
 
+function escapeAttr(text) {
+  return String(text ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 async function apiFetch(url, options = {}) {
+  const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
   const res = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
     ...options,
+    headers,
   });
   const data = await res.json().catch(() => ({}));
+  if (res.status === 401 && url !== "/api/auth/login" && url !== "/api/auth/me") {
+    handleUnauthorized();
+  }
   if (!res.ok) {
     throw new Error(data.detail || "So'rovda xatolik yuz berdi");
   }
@@ -78,6 +95,106 @@ function diffBadge(diff) {
 // Navigation & Initial Load
 // ---------------------------------------------------------------------------
 
+function showAuthOverlay(errorMsg = "") {
+  document.getElementById("appShell").classList.add("hidden");
+  document.getElementById("authOverlay").classList.remove("hidden");
+  closeStudioModal();
+  const errBox = document.getElementById("authErrorBox");
+  if (errorMsg) {
+    errBox.textContent = errorMsg;
+    errBox.classList.remove("hidden");
+  } else {
+    errBox.textContent = "";
+    errBox.classList.add("hidden");
+  }
+}
+
+function showAppShell(username) {
+  state.authUsername = username || "admin";
+  document.getElementById("authOverlay").classList.add("hidden");
+  document.getElementById("appShell").classList.remove("hidden");
+  const badge = document.getElementById("adminUsernameText");
+  if (badge) badge.textContent = state.authUsername;
+  const credUser = document.getElementById("credNewUsername");
+  if (credUser && !credUser.value) credUser.value = state.authUsername;
+}
+
+function handleUnauthorized() {
+  if (!document.getElementById("authOverlay").classList.contains("hidden")) return;
+  showAuthOverlay("Sessiya muddati tugagan. Iltimos, qayta kiring.");
+}
+
+async function loginStudio(e) {
+  e.preventDefault();
+  const username = document.getElementById("loginUsername").value.trim();
+  const password = document.getElementById("loginPassword").value;
+  const errBox = document.getElementById("authErrorBox");
+  const btn = document.getElementById("loginSubmitBtn");
+  errBox.classList.add("hidden");
+  btn.disabled = true;
+  try {
+    const res = await apiFetch("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ username, password }),
+    });
+    document.getElementById("loginPassword").value = "";
+    showAppShell(res.username);
+    await refreshAll();
+    await simSendText("/start", false);
+    showGlobalToast(`🔓 Xush kelibsiz, ${res.username}!`);
+  } catch (err) {
+    errBox.textContent = err.message || "Login yoki parol noto'g'ri";
+    errBox.classList.remove("hidden");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function logoutStudio() {
+  try {
+    await apiFetch("/api/auth/logout", { method: "POST" });
+  } catch {
+    // Ignore logout transport errors
+  }
+  state.authUsername = null;
+  showAuthOverlay();
+  showGlobalToast("🚪 Tizimdan chiqdingiz");
+}
+
+async function updateStudioCredentials(e) {
+  e.preventDefault();
+  const currentPassword = document.getElementById("credCurrentPassword").value;
+  const newUsername = document.getElementById("credNewUsername").value.trim();
+  const newPassword = document.getElementById("credNewPassword").value;
+  try {
+    const res = await apiFetch("/api/auth/credentials", {
+      method: "POST",
+      body: JSON.stringify({
+        current_password: currentPassword,
+        new_username: newUsername,
+        new_password: newPassword,
+      }),
+    });
+    document.getElementById("credCurrentPassword").value = "";
+    document.getElementById("credNewPassword").value = "";
+    showAppShell(res.username);
+    showGlobalToast(`🔑 Login (${res.username}) va parol yangilandi!`);
+  } catch (err) {
+    showGlobalToast(`❌ ${err.message}`, 4500);
+  }
+}
+
+function openStudioModal(title, bodyHtml) {
+  document.getElementById("studioModalTitle").textContent = title;
+  document.getElementById("studioModalBody").innerHTML = bodyHtml;
+  document.getElementById("studioModal").classList.remove("hidden");
+}
+
+function closeStudioModal() {
+  const modal = document.getElementById("studioModal");
+  if (modal) modal.classList.add("hidden");
+}
+
 function switchTab(tabName) {
   document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.tab === tabName);
@@ -85,16 +202,303 @@ function switchTab(tabName) {
   document.querySelectorAll(".tab-panel").forEach((panel) => {
     panel.classList.toggle("active", panel.id === `tab-${tabName}`);
   });
+  if (tabName === "users") loadUsers();
   if (tabName === "leaderboard") loadLeaderboard();
   if (tabName === "settings") loadBotStatus();
 }
 
 async function refreshAll() {
-  await Promise.all([loadStats(), loadCategories(), loadQuizzes()]);
+  await Promise.all([loadStats(), loadCategories(), loadQuizzes(), loadUsers()]);
   renderSimQuizChips();
   renderWebQuizLobby();
   renderAdminLists();
+  renderUsersTable();
   populateLeaderboardFilter();
+}
+
+async function loadUsers() {
+  state.users = await apiFetch("/api/users");
+  renderUsersTable();
+}
+
+function renderUsersTable() {
+  const wrap = document.getElementById("usersTableWrap");
+  if (!wrap) return;
+  const search = (document.getElementById("userSearchInput")?.value || "").trim().toLowerCase();
+  const roleFilter = document.getElementById("userRoleFilter")?.value || "all";
+
+  const filtered = state.users.filter((u) => {
+    if (roleFilter === "admin" && !u.is_admin) return false;
+    if (roleFilter === "user" && u.is_admin) return false;
+    if (!search) return true;
+    const hay = `${u.full_name} ${u.username || ""} ${u.telegram_id}`.toLowerCase();
+    return hay.includes(search);
+  });
+
+  if (!filtered.length) {
+    wrap.innerHTML = `<p class="muted">Mos keluvchi foydalanuvchi topilmadi.</p>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Foydalanuvchi</th>
+          <th>Telegram ID</th>
+          <th>Rol</th>
+          <th>XP</th>
+          <th>Testlar</th>
+          <th>Aniqlik</th>
+          <th>Amallar</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filtered
+          .map(
+            (u) => `
+          <tr>
+            <td>
+              <strong>${escapeHtml(u.full_name)}</strong>
+              ${u.username ? `<div class="muted text-sm">@${escapeHtml(u.username)}</div>` : ""}
+            </td>
+            <td class="mono">${u.telegram_id}</td>
+            <td>
+              <span class="badge ${u.is_admin ? "badge-admin" : "badge-user"}">
+                ${u.is_admin ? "🛡 Admin" : "👤 Foydalanuvchi"}
+              </span>
+            </td>
+            <td><strong>${u.xp}</strong> XP</td>
+            <td>${u.tests_completed}</td>
+            <td>${u.accuracy}% (${u.correct_answers}/${u.total_questions})</td>
+            <td>
+              <div class="actions-cell">
+                <button type="button" class="btn btn-ghost btn-sm" title="Tahrirlash" onclick="openEditUserModal(${u.id})">✏️</button>
+                <button type="button" class="btn btn-ghost btn-sm" title="Telegram xabar yuborish" onclick="openMessageUserModal(${u.id})">✉️</button>
+                <button type="button" class="btn btn-ghost btn-sm" title="Statistikani nollash" onclick="resetUserStatsConfirm(${u.id})">🔄</button>
+                <button type="button" class="btn btn-danger btn-sm" title="O'chirish" onclick="deleteUserConfirm(${u.id})">🗑</button>
+              </div>
+            </td>
+          </tr>`
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function openCreateUserModal() {
+  openStudioModal(
+    "➕ Yangi Foydalanuvchi Qo'shish",
+    `<form onsubmit="submitCreateUser(event)" class="stack-form">
+      <div>
+        <label class="field-lbl" for="newUserTgId">Telegram ID</label>
+        <input id="newUserTgId" class="input mono" type="number" required placeholder="Masalan: 123456789" />
+      </div>
+      <div>
+        <label class="field-lbl" for="newUserFullName">To'liq ism</label>
+        <input id="newUserFullName" class="input" type="text" required placeholder="Ali Valiyev" />
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label class="field-lbl" for="newUserUsername">Username (@ siz)</label>
+          <input id="newUserUsername" class="input" type="text" placeholder="alivaliyev" />
+        </div>
+        <div>
+          <label class="field-lbl" for="newUserXp">Boshlang'ich XP</label>
+          <input id="newUserXp" class="input" type="number" min="0" value="0" />
+        </div>
+      </div>
+      <label class="check-row">
+        <input id="newUserIsAdmin" type="checkbox" />
+        <span>🛡 Telegram Bot Admin huquqini berish</span>
+      </label>
+      <div class="btn-row">
+        <button type="submit" class="btn btn-primary">💾 Saqlash</button>
+        <button type="button" class="btn btn-ghost" onclick="closeStudioModal()">Bekor qilish</button>
+      </div>
+    </form>`
+  );
+}
+
+async function submitCreateUser(e) {
+  e.preventDefault();
+  try {
+    await apiFetch("/api/users", {
+      method: "POST",
+      body: JSON.stringify({
+        telegram_id: Number(document.getElementById("newUserTgId").value),
+        full_name: document.getElementById("newUserFullName").value.trim(),
+        username: document.getElementById("newUserUsername").value.trim().replace(/^@/, ""),
+        xp: Number(document.getElementById("newUserXp").value) || 0,
+        is_admin: document.getElementById("newUserIsAdmin").checked,
+      }),
+    });
+    closeStudioModal();
+    await refreshAll();
+    showGlobalToast("✅ Yangi foydalanuvchi qo'shildi");
+  } catch (err) {
+    showGlobalToast(`❌ ${err.message}`, 4500);
+  }
+}
+
+function openEditUserModal(userId) {
+  const user = state.users.find((u) => u.id === userId);
+  if (!user) return;
+  openStudioModal(
+    `✏️ Foydalanuvchini Tahrirlash (#${user.id})`,
+    `<form onsubmit="submitEditUser(event, ${user.id})" class="stack-form">
+      <div>
+        <label class="field-lbl" for="editUserFullName">To'liq ism</label>
+        <input id="editUserFullName" class="input" type="text" value="${escapeAttr(user.full_name)}" required />
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label class="field-lbl" for="editUserUsername">Username (@ siz)</label>
+          <input id="editUserUsername" class="input" type="text" value="${escapeAttr(user.username || "")}" />
+        </div>
+        <div>
+          <label class="field-lbl" for="editUserTgId">Telegram ID</label>
+          <input id="editUserTgId" class="input mono" type="number" value="${user.telegram_id}" required />
+        </div>
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label class="field-lbl" for="editUserXp">XP ball</label>
+          <input id="editUserXp" class="input" type="number" min="0" value="${user.xp}" required />
+        </div>
+        <div>
+          <label class="field-lbl" for="editUserTests">Yakunlangan testlar</label>
+          <input id="editUserTests" class="input" type="number" min="0" value="${user.tests_completed}" required />
+        </div>
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label class="field-lbl" for="editUserCorrect">To'g'ri javoblar</label>
+          <input id="editUserCorrect" class="input" type="number" min="0" value="${user.correct_answers}" required />
+        </div>
+        <div>
+          <label class="field-lbl" for="editUserTotalQ">Jami savollar</label>
+          <input id="editUserTotalQ" class="input" type="number" min="0" value="${user.total_questions}" required />
+        </div>
+      </div>
+      <label class="check-row">
+        <input id="editUserIsAdmin" type="checkbox" ${user.is_admin ? "checked" : ""} />
+        <span>🛡 Telegram Bot Admin (barcha boshqaruv buyruqlariga ruxsat)</span>
+      </label>
+      <div class="btn-row">
+        <button type="submit" class="btn btn-primary">💾 O'zgarishlarni Saqlash</button>
+        <button type="button" class="btn btn-ghost" onclick="closeStudioModal()">Bekor qilish</button>
+      </div>
+    </form>`
+  );
+}
+
+async function submitEditUser(e, userId) {
+  e.preventDefault();
+  try {
+    await apiFetch(`/api/users/${userId}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        full_name: document.getElementById("editUserFullName").value.trim(),
+        username: document.getElementById("editUserUsername").value.trim().replace(/^@/, ""),
+        telegram_id: Number(document.getElementById("editUserTgId").value),
+        xp: Number(document.getElementById("editUserXp").value) || 0,
+        tests_completed: Number(document.getElementById("editUserTests").value) || 0,
+        correct_answers: Number(document.getElementById("editUserCorrect").value) || 0,
+        total_questions: Number(document.getElementById("editUserTotalQ").value) || 0,
+        is_admin: document.getElementById("editUserIsAdmin").checked,
+      }),
+    });
+    closeStudioModal();
+    await refreshAll();
+    showGlobalToast("✅ Foydalanuvchi ma'lumotlari saqlandi");
+  } catch (err) {
+    showGlobalToast(`❌ ${err.message}`, 4500);
+  }
+}
+
+function openMessageUserModal(userId) {
+  const user = state.users.find((u) => u.id === userId);
+  if (!user) return;
+  openStudioModal(
+    `✉️ ${escapeHtml(user.full_name)} ga Telegram Xabar`,
+    `<form onsubmit="submitDirectMessage(event, ${user.telegram_id})" class="stack-form">
+      <p class="muted text-sm">Qabul qiluvchi Telegram ID: <code class="mono">${user.telegram_id}</code></p>
+      <div>
+        <label class="field-lbl" for="directMsgText">Xabar matni</label>
+        <textarea id="directMsgText" class="input" rows="4" required placeholder="Salom! Sizga xabar..."></textarea>
+      </div>
+      <div class="btn-row">
+        <button type="submit" class="btn btn-primary">📨 Yuborish</button>
+        <button type="button" class="btn btn-ghost" onclick="closeStudioModal()">Bekor qilish</button>
+      </div>
+    </form>`
+  );
+}
+
+async function submitDirectMessage(e, telegramId) {
+  e.preventDefault();
+  const text = document.getElementById("directMsgText").value.trim();
+  if (!text) return;
+  try {
+    const res = await apiFetch("/api/bot/broadcast", {
+      method: "POST",
+      body: JSON.stringify({ text, telegram_id: telegramId }),
+    });
+    closeStudioModal();
+    if (res.sent > 0) {
+      showGlobalToast("✅ Telegram xabar yuborildi");
+    } else {
+      showGlobalToast("⚠️ Xabar yuborilmadi (botga start bosmagan bo'lishi mumkin)", 4500);
+    }
+  } catch (err) {
+    showGlobalToast(`❌ ${err.message}`, 4500);
+  }
+}
+
+async function sendBroadcast(e) {
+  e.preventDefault();
+  const input = document.getElementById("broadcastTextInput");
+  const text = input.value.trim();
+  if (!text) return;
+  if (!confirm("Haqiqatan ham barcha Telegram foydalanuvchilarga xabar yuborilsinmi?")) return;
+  try {
+    const res = await apiFetch("/api/bot/broadcast", {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    });
+    input.value = "";
+    showGlobalToast(`📢 Yuborildi: ${res.sent}/${res.total} ta (xato: ${res.failed})`, 4500);
+  } catch (err) {
+    showGlobalToast(`❌ ${err.message}`, 4500);
+  }
+}
+
+async function resetUserStatsConfirm(userId) {
+  const user = state.users.find((u) => u.id === userId);
+  if (!user) return;
+  if (!confirm(`"${user.full_name}" ning XP, statistika va barcha test urinishlari nollansinmi?`)) return;
+  try {
+    await apiFetch(`/api/users/${userId}/reset`, { method: "POST" });
+    await refreshAll();
+    showGlobalToast("🔄 Foydalanuvchi statistikasi nollandi");
+  } catch (err) {
+    showGlobalToast(`❌ ${err.message}`, 4500);
+  }
+}
+
+async function deleteUserConfirm(userId) {
+  const user = state.users.find((u) => u.id === userId);
+  if (!user) return;
+  if (!confirm(`"${user.full_name}" va uning barcha test natijalari butunlay o'chirilsinmi?`)) return;
+  try {
+    await apiFetch(`/api/users/${userId}`, { method: "DELETE" });
+    await refreshAll();
+    showGlobalToast("🗑 Foydalanuvchi o'chirildi");
+  } catch (err) {
+    showGlobalToast(`❌ ${err.message}`, 4500);
+  }
 }
 
 async function loadStats() {
@@ -587,7 +991,10 @@ function renderAdminLists() {
           <strong>${escapeHtml(c.icon)} ${escapeHtml(c.name)}</strong>
           <div class="muted text-sm">${c.quiz_count} ta test · ${c.question_count} ta savol</div>
         </div>
-        <button class="btn btn-danger btn-sm" onclick="adminDeleteCategory(${c.id})">🗑</button>
+        <div class="btn-row">
+          <button type="button" class="btn btn-ghost btn-sm" title="Kategoriyani tahrirlash" onclick="openEditCategoryModal(${c.id})">✏️</button>
+          <button type="button" class="btn btn-danger btn-sm" title="O'chirish" onclick="adminDeleteCategory(${c.id})">🗑</button>
+        </div>
       </div>`
     )
     .join("");
@@ -605,12 +1012,147 @@ function renderAdminLists() {
           </div>
         </div>
         <div class="btn-row" onclick="event.stopPropagation()">
-          <button class="btn btn-ghost btn-sm" onclick="openQuestionEditor(${qz.id})">✏️ Savollar</button>
-          <button class="btn btn-danger btn-sm" onclick="adminDeleteQuiz(${qz.id})">🗑</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="openQuestionEditor(${qz.id})">📝 Savollar</button>
+          <button type="button" class="btn btn-ghost btn-sm" title="Testni tahrirlash" onclick="openEditQuizModal(${qz.id})">✏️</button>
+          <button type="button" class="btn btn-danger btn-sm" title="O'chirish" onclick="adminDeleteQuiz(${qz.id})">🗑</button>
         </div>
       </div>`
     )
     .join("");
+}
+
+function openEditCategoryModal(catId) {
+  const cat = state.categories.find((c) => c.id === catId);
+  if (!cat) return;
+  openStudioModal(
+    `✏️ Kategoriyani Tahrirlash`,
+    `<form onsubmit="submitEditCategory(event, ${cat.id})" class="stack-form">
+      <div class="form-row-2">
+        <div>
+          <label class="field-lbl" for="editCatIcon">Ikonka (emoji)</label>
+          <input id="editCatIcon" class="input" type="text" value="${escapeAttr(cat.icon)}" required />
+        </div>
+        <div>
+          <label class="field-lbl" for="editCatName">Kategoriya nomi</label>
+          <input id="editCatName" class="input" type="text" value="${escapeAttr(cat.name)}" required />
+        </div>
+      </div>
+      <div>
+        <label class="field-lbl" for="editCatDesc">Tavsif</label>
+        <input id="editCatDesc" class="input" type="text" value="${escapeAttr(cat.description || "")}" />
+      </div>
+      <label class="check-row">
+        <input id="editCatActive" type="checkbox" ${cat.is_active ? "checked" : ""} />
+        <span>Faol holatda</span>
+      </label>
+      <div class="btn-row">
+        <button type="submit" class="btn btn-primary">💾 Saqlash</button>
+        <button type="button" class="btn btn-ghost" onclick="closeStudioModal()">Bekor qilish</button>
+      </div>
+    </form>`
+  );
+}
+
+async function submitEditCategory(e, catId) {
+  e.preventDefault();
+  try {
+    await apiFetch(`/api/categories/${catId}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        icon: document.getElementById("editCatIcon").value.trim() || "📚",
+        name: document.getElementById("editCatName").value.trim(),
+        description: document.getElementById("editCatDesc").value.trim(),
+        is_active: document.getElementById("editCatActive").checked,
+      }),
+    });
+    closeStudioModal();
+    await refreshAll();
+    showGlobalToast("✅ Kategoriya yangilandi");
+  } catch (err) {
+    showGlobalToast(`❌ ${err.message}`, 4500);
+  }
+}
+
+function openEditQuizModal(quizId) {
+  const qz = state.quizzes.find((q) => q.id === quizId);
+  if (!qz) return;
+  const catOpts = state.categories
+    .map(
+      (c) =>
+        `<option value="${c.id}" ${c.id === qz.category_id ? "selected" : ""}>${escapeHtml(c.icon)} ${escapeHtml(c.name)}</option>`
+    )
+    .join("");
+  const diffOpts = ["oson", "orta", "qiyin"]
+    .map((d) => `<option value="${d}" ${qz.difficulty === d ? "selected" : ""}>${diffBadge(d)}</option>`)
+    .join("");
+
+  openStudioModal(
+    `✏️ Testni Tahrirlash`,
+    `<form onsubmit="submitEditQuiz(event, ${qz.id})" class="stack-form">
+      <div>
+        <label class="field-lbl" for="editQuizCat">Kategoriya</label>
+        <select id="editQuizCat" class="input">${catOpts}</select>
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label class="field-lbl" for="editQuizTitle">Test nomi</label>
+          <input id="editQuizTitle" class="input" type="text" value="${escapeAttr(qz.title)}" required />
+        </div>
+        <div>
+          <label class="field-lbl" for="editQuizCode">Test kodi (#)</label>
+          <input id="editQuizCode" class="input mono" type="text" value="${escapeAttr(qz.code)}" required />
+        </div>
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label class="field-lbl" for="editQuizDiff">Qiyinlik darajasi</label>
+          <select id="editQuizDiff" class="input">${diffOpts}</select>
+        </div>
+        <div>
+          <label class="field-lbl" for="editQuizTime">Vaqt limiti (soniya)</label>
+          <input id="editQuizTime" class="input" type="number" min="30" max="7200" value="${qz.time_limit_sec}" required />
+        </div>
+      </div>
+      <div>
+        <label class="field-lbl" for="editQuizDesc">Tavsif</label>
+        <input id="editQuizDesc" class="input" type="text" value="${escapeAttr(qz.description || "")}" />
+      </div>
+      <label class="check-row">
+        <input id="editQuizActive" type="checkbox" ${qz.is_active ? "checked" : ""} />
+        <span>Faol test</span>
+      </label>
+      <div class="btn-row">
+        <button type="submit" class="btn btn-primary">💾 Saqlash</button>
+        <button type="button" class="btn btn-ghost" onclick="closeStudioModal()">Bekor qilish</button>
+      </div>
+    </form>`
+  );
+}
+
+async function submitEditQuiz(e, quizId) {
+  e.preventDefault();
+  try {
+    await apiFetch(`/api/quizzes/${quizId}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        category_id: Number(document.getElementById("editQuizCat").value),
+        title: document.getElementById("editQuizTitle").value.trim(),
+        code: document.getElementById("editQuizCode").value.trim(),
+        difficulty: document.getElementById("editQuizDiff").value,
+        time_limit_sec: Number(document.getElementById("editQuizTime").value) || 300,
+        description: document.getElementById("editQuizDesc").value.trim(),
+        is_active: document.getElementById("editQuizActive").checked,
+      }),
+    });
+    closeStudioModal();
+    await refreshAll();
+    if (state.selectedQuizId === quizId) {
+      await openQuestionEditor(quizId);
+    }
+    showGlobalToast("✅ Test ma'lumotlari yangilandi");
+  } catch (err) {
+    showGlobalToast(`❌ ${err.message}`, 4500);
+  }
 }
 
 async function adminCreateCategory(e) {
@@ -677,6 +1219,7 @@ async function adminDeleteQuiz(id) {
 async function openQuestionEditor(quizId) {
   state.selectedQuizId = quizId;
   const data = await apiFetch(`/api/quizzes/${quizId}/questions`);
+  state.editorQuestions = data.questions || [];
   const editor = document.getElementById("adminQuestionEditor");
   editor.classList.remove("hidden");
   document.getElementById("editorQuizTitle").textContent = `${data.quiz.category_icon} ${data.quiz.title}`;
@@ -691,7 +1234,10 @@ async function openQuestionEditor(quizId) {
           <div class="q-item">
             <div class="row-between">
               <strong>${idx + 1}. ${escapeHtml(q.question_text)}</strong>
-              <button class="btn btn-danger btn-sm" onclick="adminDeleteQuestion(${q.id})">🗑</button>
+              <div class="btn-row">
+                <button type="button" class="btn btn-ghost btn-sm" title="Savolni tahrirlash" onclick="openEditQuestionModal(${q.id})">✏️</button>
+                <button type="button" class="btn btn-danger btn-sm" title="Savolni o'chirish" onclick="adminDeleteQuestion(${q.id})">🗑</button>
+              </div>
             </div>
             <div class="q-item-opts">
               <div class="${q.correct_option === "A" ? "is-corr" : ""}">A) ${escapeHtml(q.option_a)}</div>
@@ -706,6 +1252,89 @@ async function openQuestionEditor(quizId) {
     : `<p class="muted">Hozircha savollar yo'q. Yuqoridagi forma orqali savol qo'shing!</p>`;
 
   editor.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function openEditQuestionModal(questionId) {
+  const q = state.editorQuestions.find((item) => item.id === questionId);
+  if (!q) return;
+  const optLetters = ["A", "B", "C", "D"]
+    .map((l) => `<option value="${l}" ${q.correct_option === l ? "selected" : ""}>${l}</option>`)
+    .join("");
+
+  openStudioModal(
+    `✏️ Savolni Tahrirlash (#${q.id})`,
+    `<form onsubmit="submitEditQuestion(event, ${q.id})" class="stack-form">
+      <div>
+        <label class="field-lbl" for="editQText">Savol matni</label>
+        <textarea id="editQText" class="input" rows="3" required>${escapeHtml(q.question_text)}</textarea>
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label class="field-lbl" for="editQA">A variant</label>
+          <input id="editQA" class="input" type="text" value="${escapeAttr(q.option_a)}" required />
+        </div>
+        <div>
+          <label class="field-lbl" for="editQB">B variant</label>
+          <input id="editQB" class="input" type="text" value="${escapeAttr(q.option_b)}" required />
+        </div>
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label class="field-lbl" for="editQC">C variant</label>
+          <input id="editQC" class="input" type="text" value="${escapeAttr(q.option_c)}" required />
+        </div>
+        <div>
+          <label class="field-lbl" for="editQD">D variant</label>
+          <input id="editQD" class="input" type="text" value="${escapeAttr(q.option_d)}" required />
+        </div>
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label class="field-lbl" for="editQCorrect">To'g'ri javob</label>
+          <select id="editQCorrect" class="input">${optLetters}</select>
+        </div>
+        <div>
+          <label class="field-lbl" for="editQPoints">Ball (points)</label>
+          <input id="editQPoints" class="input" type="number" min="1" max="100" value="${q.points || 10}" required />
+        </div>
+      </div>
+      <div>
+        <label class="field-lbl" for="editQExpl">Izoh (ixtiyoriy)</label>
+        <input id="editQExpl" class="input" type="text" value="${escapeAttr(q.explanation || "")}" />
+      </div>
+      <div class="btn-row">
+        <button type="submit" class="btn btn-primary">💾 Saqlash</button>
+        <button type="button" class="btn btn-ghost" onclick="closeStudioModal()">Bekor qilish</button>
+      </div>
+    </form>`
+  );
+}
+
+async function submitEditQuestion(e, questionId) {
+  e.preventDefault();
+  try {
+    await apiFetch(`/api/questions/${questionId}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        question_text: document.getElementById("editQText").value.trim(),
+        option_a: document.getElementById("editQA").value.trim(),
+        option_b: document.getElementById("editQB").value.trim(),
+        option_c: document.getElementById("editQC").value.trim(),
+        option_d: document.getElementById("editQD").value.trim(),
+        correct_option: document.getElementById("editQCorrect").value,
+        points: Number(document.getElementById("editQPoints").value) || 10,
+        explanation: document.getElementById("editQExpl").value.trim(),
+      }),
+    });
+    closeStudioModal();
+    if (state.selectedQuizId) {
+      await openQuestionEditor(state.selectedQuizId);
+    }
+    await refreshAll();
+    showGlobalToast("✅ Savol tahrirlandi");
+  } catch (err) {
+    showGlobalToast(`❌ ${err.message}`, 4500);
+  }
 }
 
 function closeQuestionEditor() {
@@ -841,6 +1470,7 @@ function renderRecentAttempts(attempts) {
           <th>Test</th>
           <th>Natija</th>
           <th>Vaqt</th>
+          <th>Amallar</th>
         </tr>
       </thead>
       <tbody>
@@ -852,12 +1482,37 @@ function renderRecentAttempts(attempts) {
             <td>${escapeHtml(a.quiz_title)} <span class="mono muted">#${escapeHtml(a.quiz_code)}</span></td>
             <td><strong>${a.percentage}%</strong> (${a.correct_count}/${a.correct_count + a.wrong_count + a.skipped_count})</td>
             <td class="mono">${formatDuration(a.duration_sec)}</td>
+            <td>
+              <button type="button" class="btn btn-danger btn-sm" title="Natijani o'chirish" onclick="deleteAttemptConfirm(${a.id})">🗑</button>
+            </td>
           </tr>`
           )
           .join("")}
       </tbody>
     </table>
   `;
+}
+
+async function deleteAttemptConfirm(attemptId) {
+  if (!confirm("Ushbu test natijasi o'chirilsinmi? Foydalanuvchi statistikasi qayta hisoblanadi.")) return;
+  try {
+    await apiFetch(`/api/attempts/${attemptId}`, { method: "DELETE" });
+    await Promise.all([loadLeaderboard(), refreshAll()]);
+    showGlobalToast("🗑 Test natijasi o'chirildi");
+  } catch (err) {
+    showGlobalToast(`❌ ${err.message}`, 4500);
+  }
+}
+
+async function clearAllAttemptsConfirm() {
+  if (!confirm("DIQQAT! Barcha yakunlangan va faol test natijalari hamda XP ballar o'chirilsinmi?")) return;
+  try {
+    const res = await apiFetch("/api/attempts", { method: "DELETE" });
+    await Promise.all([loadLeaderboard(), refreshAll()]);
+    showGlobalToast(`🧹 Tozalandi: ${res.deleted_count} ta natija o'chirildi`);
+  } catch (err) {
+    showGlobalToast(`❌ ${err.message}`, 4500);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -898,8 +1553,20 @@ async function disconnectBotToken() {
   showGlobalToast("🔌 Telegram bot to'xtatildi");
 }
 
-// Boot
-window.addEventListener("DOMContentLoaded", async () => {
-  await refreshAll();
-  await simSendText("/start", false);
-});
+// Boot: verify studio session before loading dashboard
+async function checkSessionAndBoot() {
+  try {
+    const me = await apiFetch("/api/auth/me");
+    if (me.authenticated) {
+      showAppShell(me.username);
+      await refreshAll();
+      await simSendText("/start", false);
+      return;
+    }
+  } catch {
+    // Fall back to login overlay when session check fails
+  }
+  showAuthOverlay();
+}
+
+window.addEventListener("DOMContentLoaded", checkSessionAndBoot);

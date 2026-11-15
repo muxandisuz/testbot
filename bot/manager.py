@@ -124,5 +124,38 @@ class BotManager:
             self._status["mode"] = "error"
             self._status["error"] = str(exc)
 
+    async def send_message_to_users(self, telegram_ids: list[int], text: str) -> dict[str, int]:
+        """Send a Telegram message to one or more users via the active or configured bot."""
+        clean_text = (text or "").strip()
+        if not clean_text:
+            raise ValueError("Xabar matni bo'sh bo'lmasligi kerak.")
+
+        temp_bot: Bot | None = None
+        bot = self._bot
+        if bot is None:
+            token = get_settings().bot_token.strip()
+            if not token:
+                raise RuntimeError("Telegram bot ulanmagan (BOT_TOKEN kiritilmagan).")
+            temp_bot = Bot(
+                token=token,
+                default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+            )
+            bot = temp_bot
+
+        sent = 0
+        failed = 0
+        try:
+            for tid in telegram_ids:
+                try:
+                    await bot.send_message(chat_id=tid, text=clean_text)
+                    sent += 1
+                except Exception as exc:
+                    logger.warning("Foydalanuvchi %s ga xabar yuborib bo'lmadi: %s", tid, exc)
+                    failed += 1
+        finally:
+            if temp_bot is not None:
+                await temp_bot.session.close()
+        return {"sent": sent, "failed": failed}
+
 
 bot_manager = BotManager()

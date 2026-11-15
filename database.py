@@ -130,6 +130,11 @@ CREATE TABLE IF NOT EXISTS attempt_answers (
     FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE,
     UNIQUE (attempt_id, question_id)
 );
+
+CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 """
 
 
@@ -182,28 +187,73 @@ async def cleanup_legacy_non_falsafa_data(db_path: Path | str | None = None) -> 
             WHERE mode = 'practice' AND is_completed = 1 AND correct_count = 0 AND wrong_count = 0
             """
         )
-        await db.execute(
-            """
-            UPDATE users
-            SET tests_completed = (
-                    SELECT COUNT(*) FROM attempts a
-                    WHERE a.user_id = users.id AND a.is_completed = 1
-                ),
-                correct_answers = (
-                    SELECT COALESCE(SUM(a.correct_count), 0) FROM attempts a
-                    WHERE a.user_id = users.id AND a.is_completed = 1
-                ),
-                total_questions = (
-                    SELECT COALESCE(SUM(
-                        CASE WHEN a.mode = 'practice' THEN (a.correct_count + a.wrong_count)
-                             ELSE (a.correct_count + a.wrong_count + a.skipped_count)
-                        END
-                    ), 0)
-                    FROM attempts a
-                    WHERE a.user_id = users.id AND a.is_completed = 1
-                )
-            """
+        await _sync_user_totals(db)
+        await db.commit()
+
+
+async def _sync_user_totals(db: aiosqlite.Connection, user_id: int | None = None) -> None:
+    """Recompute cached tests_completed, correct_answers, and total_questions from completed attempts."""
+    where_sql = "WHERE users.id = ?" if user_id is not None else ""
+    params: tuple[Any, ...] = (user_id,) if user_id is not None else ()
+    await db.execute(
+        f"""
+        UPDATE users
+        SET tests_completed = (
+                SELECT COUNT(*) FROM attempts a
+                WHERE a.user_id = users.id AND a.is_completed = 1
+            ),
+            correct_answers = (
+                SELECT COALESCE(SUM(a.correct_count), 0) FROM attempts a
+                WHERE a.user_id = users.id AND a.is_completed = 1
+            ),
+            total_questions = (
+                SELECT COALESCE(SUM(
+                    CASE WHEN a.mode = 'practice' THEN (a.correct_count + a.wrong_count)
+                         ELSE (a.correct_count + a.wrong_count + a.skipped_count)
+                    END
+                ), 0)
+                FROM attempts a
+                WHERE a.user_id = users.id AND a.is_completed = 1
+            )
+        {where_sql}
+        """,
+        params,
+    )
+
+
+async def get_admin_credentials(db_path: Path | str | None = None) -> tuple[str, str]:
+    """Return active (login, password) for TestMaster Bot Studio, falling back to Settings."""
+    settings = get_settings()
+    login = settings.admin_login
+    password = settings.admin_password
+    async with get_db(db_path) as db:
+        cur = await db.execute(
+            "SELECT key, value FROM app_settings WHERE key IN ('admin_login', 'admin_password')"
         )
+        rows = {str(r["key"]): str(r["value"]) for r in await cur.fetchall()}
+    if rows.get("admin_login"):
+        login = rows["admin_login"]
+    if rows.get("admin_password"):
+        password = rows["admin_password"]
+    return login, password
+
+
+async def set_admin_credentials(login: str, password: str, db_path: Path | str | None = None) -> None:
+    """Persist Studio admin login and password in SQLite app_settings."""
+    clean_login = login.strip()
+    if not clean_login:
+        raise ValueError("Login bo'sh bo'lishi mumkin emas.")
+    if not password:
+        raise ValueError("Parol bo'sh bo'lishi mumkin emas.")
+    async with get_db(db_path) as db:
+        for key, value in (("admin_login", clean_login), ("admin_password", password)):
+            await db.execute(
+                """
+                INSERT INTO app_settings (key, value) VALUES (?, ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value
+                """,
+                (key, value),
+            )
         await db.commit()
 
 
@@ -407,6 +457,158 @@ async def get_leaderboard(
         return [dict(r) for r in await cur.fetchall()]
 
 
+def _enrich_user_dict(row: aiosqlite.Row | dict[str, Any]) -> dict[str, Any]:
+    user = dict(row)
+    tq = int(user.get("total_questions") or 0)
+    ca = int(user.get("correct_answers") or 0)
+    user["accuracy"] = round((ca / tq) * 100, 1) if tq > 0 else 0.0
+    return user
+
+
+async def list_users(db_path: Path | str | None = None) -> list[dict[str, Any]]:
+    """Return all registered real Telegram/Web users with attempt counts and accuracy."""
+    async with get_db(db_path) as db:
+        cur = await db.execute(
+            """
+            SELECT
+                u.*,
+                (
+                    SELECT COUNT(*) FROM attempts a
+                    WHERE a.user_id = u.id AND a.is_completed = 1
+                      AND NOT (a.mode = 'practice' AND a.correct_count = 0 AND a.wrong_count = 0)
+                ) AS attempts_count
+            FROM users u
+            WHERE u.telegram_id != 999000111
+            ORDER BY u.xp DESC, u.id DESC
+            """
+        )
+        return [_enrich_user_dict(r) for r in await cur.fetchall()]
+
+
+async def get_user_by_id(user_id: int, db_path: Path | str | None = None) -> dict[str, Any] | None:
+    """Fetch a single user row by internal primary key ID."""
+    async with get_db(db_path) as db:
+        cur = await db.execute(
+            """
+            SELECT
+                u.*,
+                (
+                    SELECT COUNT(*) FROM attempts a
+                    WHERE a.user_id = u.id AND a.is_completed = 1
+                      AND NOT (a.mode = 'practice' AND a.correct_count = 0 AND a.wrong_count = 0)
+                ) AS attempts_count
+            FROM users u
+            WHERE u.id = ?
+            """,
+            (user_id,),
+        )
+        row = await cur.fetchone()
+        return _enrich_user_dict(row) if row else None
+
+
+async def create_user(
+    telegram_id: int,
+    full_name: str,
+    username: str = "",
+    xp: int = 0,
+    db_path: Path | str | None = None,
+) -> dict[str, Any]:
+    """Create a user record manually from the Admin Studio."""
+    clean_name = (full_name or "").strip()
+    if not clean_name:
+        raise ValueError("Foydalanuvchi ismi bo'sh bo'lishi mumkin emas.")
+    clean_uname = (username or "").strip().lstrip("@")
+    async with get_db(db_path) as db:
+        dup = await db.execute("SELECT 1 FROM users WHERE telegram_id = ?", (int(telegram_id),))
+        if await dup.fetchone() is not None:
+            raise ValueError(f"Telegram ID {telegram_id} allaqachon mavjud.")
+        cur = await db.execute(
+            """
+            INSERT INTO users (telegram_id, full_name, username, xp, tests_completed, correct_answers, total_questions, created_at)
+            VALUES (?, ?, ?, ?, 0, 0, 0, ?)
+            """,
+            (int(telegram_id), clean_name, clean_uname, max(0, int(xp)), _utc_now_iso()),
+        )
+        await db.commit()
+        user_id = int(cur.lastrowid)
+    created = await get_user_by_id(user_id, db_path=db_path)
+    assert created is not None
+    return created
+
+
+async def update_user(
+    user_id: int,
+    full_name: str,
+    username: str,
+    telegram_id: int,
+    xp: int,
+    tests_completed: int,
+    correct_answers: int,
+    total_questions: int,
+    db_path: Path | str | None = None,
+) -> dict[str, Any] | None:
+    """Update editable user profile fields and stats from Admin Studio."""
+    clean_name = (full_name or "").strip()
+    if not clean_name:
+        raise ValueError("Foydalanuvchi ismi bo'sh bo'lishi mumkin emas.")
+    clean_uname = (username or "").strip().lstrip("@")
+    async with get_db(db_path) as db:
+        dup = await db.execute(
+            "SELECT 1 FROM users WHERE telegram_id = ? AND id != ?",
+            (int(telegram_id), user_id),
+        )
+        if await dup.fetchone() is not None:
+            raise ValueError(f"Telegram ID {telegram_id} boshqa foydalanuvchiga biriktirilgan.")
+        cur = await db.execute(
+            """
+            UPDATE users
+            SET telegram_id = ?, full_name = ?, username = ?, xp = ?,
+                tests_completed = ?, correct_answers = ?, total_questions = ?
+            WHERE id = ?
+            """,
+            (
+                int(telegram_id),
+                clean_name,
+                clean_uname,
+                max(0, int(xp)),
+                max(0, int(tests_completed)),
+                max(0, int(correct_answers)),
+                max(0, int(total_questions)),
+                user_id,
+            ),
+        )
+        await db.commit()
+        if cur.rowcount == 0:
+            return None
+    return await get_user_by_id(user_id, db_path=db_path)
+
+
+async def reset_user_stats(user_id: int, db_path: Path | str | None = None) -> dict[str, Any] | None:
+    """Delete a user's completed/active attempts and reset all score counters to 0."""
+    async with get_db(db_path) as db:
+        await db.execute("DELETE FROM attempts WHERE user_id = ?", (user_id,))
+        cur = await db.execute(
+            """
+            UPDATE users
+            SET xp = 0, tests_completed = 0, correct_answers = 0, total_questions = 0
+            WHERE id = ?
+            """,
+            (user_id,),
+        )
+        await db.commit()
+        if cur.rowcount == 0:
+            return None
+    return await get_user_by_id(user_id, db_path=db_path)
+
+
+async def delete_user(user_id: int, db_path: Path | str | None = None) -> bool:
+    """Permanently delete a user record and cascade-delete their attempts."""
+    async with get_db(db_path) as db:
+        cur = await db.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        await db.commit()
+        return cur.rowcount > 0
+
+
 # ---------------------------------------------------------------------------
 # Categories
 # ---------------------------------------------------------------------------
@@ -453,6 +655,30 @@ async def create_category(
         await db.commit()
         cur2 = await db.execute("SELECT * FROM categories WHERE id = ?", (cur.lastrowid,))
         return dict(await cur2.fetchone())
+
+
+async def update_category(
+    category_id: int,
+    name: str,
+    icon: str = "📚",
+    description: str = "",
+    is_active: bool = True,
+    db_path: Path | str | None = None,
+) -> dict[str, Any] | None:
+    """Update a category's name, icon, description, and active flag."""
+    async with get_db(db_path) as db:
+        cur = await db.execute(
+            """
+            UPDATE categories
+            SET name = ?, icon = ?, description = ?, is_active = ?
+            WHERE id = ?
+            """,
+            (name.strip(), (icon or "📚").strip(), (description or "").strip(), 1 if is_active else 0, category_id),
+        )
+        await db.commit()
+        if cur.rowcount == 0:
+            return None
+    return await get_category(category_id, db_path=db_path)
 
 
 async def delete_category(category_id: int, db_path: Path | str | None = None) -> bool:
@@ -614,6 +840,57 @@ async def create_quiz(
         await db.commit()
         quiz_id = int(cur.lastrowid)
     return await get_quiz(quiz_id, db_path=db_path)  # type: ignore[return-value]
+
+
+async def update_quiz(
+    quiz_id: int,
+    category_id: int,
+    title: str,
+    code: str,
+    description: str = "",
+    difficulty: str = "orta",
+    time_limit_sec: int = 300,
+    is_active: bool = True,
+    db_path: Path | str | None = None,
+) -> dict[str, Any] | None:
+    """Update quiz metadata while enforcing unique quiz code."""
+    clean_code = (code or "").strip().upper()
+    if not clean_code:
+        raise ValueError("Test kodi bo'sh bo'lishi mumkin emas.")
+    diff = (difficulty or "orta").strip().lower()
+    if diff not in {"oson", "orta", "qiyin"}:
+        diff = "orta"
+    time_limit = max(30, int(time_limit_sec or 300))
+
+    async with get_db(db_path) as db:
+        existing = await db.execute(
+            "SELECT 1 FROM quizzes WHERE UPPER(code) = ? AND id != ?",
+            (clean_code, quiz_id),
+        )
+        if await existing.fetchone() is not None:
+            raise ValueError(f"'{clean_code}' kodi allaqachon mavjud. Boshqa kod tanlang.")
+        cur = await db.execute(
+            """
+            UPDATE quizzes
+            SET category_id = ?, code = ?, title = ?, description = ?,
+                difficulty = ?, time_limit_sec = ?, is_active = ?
+            WHERE id = ?
+            """,
+            (
+                category_id,
+                clean_code,
+                title.strip(),
+                (description or "").strip(),
+                diff,
+                time_limit,
+                1 if is_active else 0,
+                quiz_id,
+            ),
+        )
+        await db.commit()
+        if cur.rowcount == 0:
+            return None
+    return await get_quiz(quiz_id, db_path=db_path)
 
 
 async def delete_quiz(quiz_id: int, db_path: Path | str | None = None) -> bool:
@@ -812,6 +1089,48 @@ async def bulk_create_questions(
         )
         created.append(q_row)
     return created, errors
+
+
+async def update_question(
+    question_id: int,
+    question_text: str,
+    option_a: str,
+    option_b: str,
+    option_c: str,
+    option_d: str,
+    correct_option: str,
+    explanation: str = "",
+    points: int = 10,
+    db_path: Path | str | None = None,
+) -> dict[str, Any] | None:
+    """Update a question's text, four options, correct letter, explanation, and points."""
+    corr = (correct_option or "").strip().upper()
+    if corr not in {"A", "B", "C", "D"}:
+        raise ValueError("To'g'ri javob faqat A, B, C yoki D bo'lishi kerak.")
+    async with get_db(db_path) as db:
+        cur = await db.execute(
+            """
+            UPDATE questions
+            SET question_text = ?, option_a = ?, option_b = ?, option_c = ?, option_d = ?,
+                correct_option = ?, explanation = ?, points = ?
+            WHERE id = ?
+            """,
+            (
+                question_text.strip(),
+                option_a.strip(),
+                option_b.strip(),
+                option_c.strip(),
+                option_d.strip(),
+                corr,
+                (explanation or "").strip(),
+                max(1, int(points or 10)),
+                question_id,
+            ),
+        )
+        await db.commit()
+        if cur.rowcount == 0:
+            return None
+    return await get_question(question_id, db_path=db_path)
 
 
 async def delete_question(question_id: int, db_path: Path | str | None = None) -> bool:
@@ -1129,3 +1448,29 @@ async def get_dashboard_stats(db_path: Path | str | None = None) -> dict[str, An
         )
         counts["recent_attempts"] = [dict(r) for r in await recent_cur.fetchall()]
         return counts
+
+
+async def delete_attempt(attempt_id: int, db_path: Path | str | None = None) -> bool:
+    """Delete an attempt and re-sync the owner's tests_completed, correct_answers, and total_questions."""
+    async with get_db(db_path) as db:
+        cur = await db.execute("SELECT user_id FROM attempts WHERE id = ?", (attempt_id,))
+        row = await cur.fetchone()
+        if not row:
+            return False
+        user_id = int(row["user_id"])
+        await db.execute("DELETE FROM attempts WHERE id = ?", (attempt_id,))
+        await _sync_user_totals(db, user_id=user_id)
+        await db.commit()
+        return True
+
+
+async def clear_all_attempts(db_path: Path | str | None = None) -> int:
+    """Delete all quiz attempts and reset all users' XP and question counters to zero."""
+    async with get_db(db_path) as db:
+        cur = await db.execute("DELETE FROM attempts")
+        deleted_count = max(0, int(cur.rowcount or 0))
+        await db.execute(
+            "UPDATE users SET xp = 0, tests_completed = 0, correct_answers = 0, total_questions = 0"
+        )
+        await db.commit()
+        return deleted_count

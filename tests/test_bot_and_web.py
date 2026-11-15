@@ -245,77 +245,210 @@ async def test_exam_mode_navigation_and_timeout(tmp_path: Path) -> None:
 
 def test_fastapi_endpoints_and_simulator(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     test_db = tmp_path / "web_test.db"
+    temp_env = tmp_path / ".env"
+    temp_env.write_text("", encoding="utf-8")
+
+    monkeypatch.setattr(config, "ENV_PATH", temp_env)
     monkeypatch.setenv("DATABASE_PATH", str(test_db))
     monkeypatch.setenv("BOT_TOKEN", "")
+    monkeypatch.setenv("ADMIN_IDS", "")
+    monkeypatch.setenv("ADMIN_LOGIN", "muxandis")
+    monkeypatch.setenv("ADMIN_PASSWORD", "muxandis2026")
     config.reload_settings()
 
-    with TestClient(app) as client:
-        home = client.get("/")
-        assert home.status_code == 200
-        assert "TestMaster Bot Studio" in home.text
+    try:
+        with TestClient(app) as client:
+            home = client.get("/")
+            assert home.status_code == 200
+            assert "TestMaster Bot Studio" in home.text
 
-        stats = client.get("/api/stats").json()
-        assert stats["categories_count"] == 1
-        assert stats["quizzes_count"] == 1
-        assert stats["questions_count"] == 175
-        assert stats["bot_status"]["mode"] == "simulator"
+            # Protected endpoints must reject unauthenticated requests
+            assert client.get("/api/stats").status_code == 401
+            assert client.get("/api/users").status_code == 401
+            me_before = client.get("/api/auth/me")
+            assert me_before.status_code == 200
+            assert me_before.json() == {"authenticated": False, "username": None}
 
-        # Create category, quiz, and bulk questions
-        cat_res = client.post("/api/categories", json={"name": "Mantiq Plus", "icon": "🧠", "description": "Qo'shimcha"})
-        assert cat_res.status_code == 200
-        cat_id = cat_res.json()["id"]
+            # Invalid login fails; valid login sets session cookie
+            bad_login = client.post("/api/auth/login", json={"username": "muxandis", "password": "wrong"})
+            assert bad_login.status_code == 401
 
-        qz_res = client.post(
-            "/api/quizzes",
-            json={
-                "category_id": cat_id,
-                "title": "Silogizm Testi",
-                "code": "7777",
-                "difficulty": "oson",
-                "time_limit_sec": 180,
-            },
-        )
-        assert qz_res.status_code == 200
-        quiz_id = qz_res.json()["id"]
+            good_login = client.post("/api/auth/login", json={"username": "muxandis", "password": "muxandis2026"})
+            assert good_login.status_code == 200
+            assert good_login.json()["authenticated"] is True
+            assert good_login.json()["username"] == "muxandis"
 
-        bulk_res = client.post(
-            f"/api/quizzes/{quiz_id}/questions/bulk",
-            json={"raw_text": "Silogizm nechta hukmdan iborat? | 2 ta | 3 ta | 4 ta | 5 ta | B | Ikki asos va bir xulosa."},
-        )
-        assert bulk_res.status_code == 200
-        assert bulk_res.json()["created_count"] == 1
+            me_after = client.get("/api/auth/me")
+            assert me_after.status_code == 200
+            assert me_after.json() == {"authenticated": True, "username": "muxandis"}
 
-        # Test Simulator API: /start -> c:list shows test names
-        sim_start = client.post("/api/simulator/action", json={"text": "/start"})
-        assert sim_start.status_code == 200
-        assert "Falsafa Test Botga xush kelibsiz" in sim_start.json()["text"]
+            stats = client.get("/api/stats").json()
+            assert stats["categories_count"] == 1
+            assert stats["quizzes_count"] == 1
+            assert stats["questions_count"] == 175
+            assert stats["bot_status"]["mode"] == "simulator"
 
-        sim_list = client.post("/api/simulator/action", json={"callback_data": "c:list"})
-        assert sim_list.status_code == 200
-        assert any(
-            b["text"] == "🦉 Falsafa (175 ta savol)"
-            for row in sim_list.json()["keyboard"]
-            for b in row
-        )
+            # Create category, quiz, and bulk questions
+            cat_res = client.post("/api/categories", json={"name": "Mantiq Plus", "icon": "🧠", "description": "Qo'shimcha"})
+            assert cat_res.status_code == 200
+            cat_id = cat_res.json()["id"]
 
-        sim_code = client.post("/api/simulator/action", json={"text": "7777"})
-        assert sim_code.status_code == 200
-        assert "Silogizm Testi" in sim_code.json()["text"]
+            qz_res = client.post(
+                "/api/quizzes",
+                json={
+                    "category_id": cat_id,
+                    "title": "Silogizm Testi",
+                    "code": "7777",
+                    "difficulty": "oson",
+                    "time_limit_sec": 180,
+                },
+            )
+            assert qz_res.status_code == 200
+            quiz_id = qz_res.json()["id"]
 
-        # Test Web Quiz Player API
-        w_start = client.post("/api/web-quiz/start", json={"quiz_id": quiz_id, "mode": "practice"})
-        assert w_start.status_code == 200
-        w_data = w_start.json()
-        att_id = w_data["attempt"]["id"]
-        q_id = w_data["questions"][0]["id"]
+            bulk_res = client.post(
+                f"/api/quizzes/{quiz_id}/questions/bulk",
+                json={"raw_text": "Silogizm nechta hukmdan iborat? | 2 ta | 3 ta | 4 ta | 5 ta | B | Ikki asos va bir xulosa."},
+            )
+            assert bulk_res.status_code == 200
+            assert bulk_res.json()["created_count"] == 1
 
-        w_ans = client.post("/api/web-quiz/answer", json={"attempt_id": att_id, "question_id": q_id, "selected_option": "B"})
-        assert w_ans.status_code == 200
-        assert w_ans.json()["is_correct"] is True
+            # Edit category, quiz, and question via PUT endpoints
+            cat_upd = client.put(
+                f"/api/categories/{cat_id}",
+                json={"name": "Mantiq Pro", "icon": "💡", "description": "Yangilandi", "is_active": True},
+            )
+            assert cat_upd.status_code == 200
+            assert cat_upd.json()["name"] == "Mantiq Pro"
 
-        w_fin = client.post("/api/web-quiz/finish", json={"attempt_id": att_id, "duration_sec": 15})
-        assert w_fin.status_code == 200
-        assert w_fin.json()["attempt"]["percentage"] == 100.0
+            qz_upd = client.put(
+                f"/api/quizzes/{quiz_id}",
+                json={
+                    "category_id": cat_id,
+                    "title": "Silogizm Testi Pro",
+                    "code": "7777",
+                    "description": "Tahrirlangan",
+                    "difficulty": "orta",
+                    "time_limit_sec": 240,
+                    "is_active": True,
+                },
+            )
+            assert qz_upd.status_code == 200
+            assert qz_upd.json()["title"] == "Silogizm Testi Pro"
+
+            qs = client.get(f"/api/quizzes/{quiz_id}/questions").json()["questions"]
+            first_q_id = qs[0]["id"]
+            q_upd = client.put(
+                f"/api/questions/{first_q_id}",
+                json={
+                    "question_text": "Silogizm nechta hukmdan tuziladi?",
+                    "option_a": "2 ta",
+                    "option_b": "3 ta",
+                    "option_c": "4 ta",
+                    "option_d": "5 ta",
+                    "correct_option": "B",
+                    "explanation": "Qayta tekshirildi",
+                    "points": 15,
+                },
+            )
+            assert q_upd.status_code == 200
+            assert q_upd.json()["points"] == 15
+
+            # Test Simulator API: /start -> c:list shows test names
+            sim_start = client.post("/api/simulator/action", json={"text": "/start"})
+            assert sim_start.status_code == 200
+            assert "Falsafa Test Botga xush kelibsiz" in sim_start.json()["text"]
+
+            sim_list = client.post("/api/simulator/action", json={"callback_data": "c:list"})
+            assert sim_list.status_code == 200
+            assert any(
+                b["text"] == "🦉 Falsafa (175 ta savol)"
+                for row in sim_list.json()["keyboard"]
+                for b in row
+            )
+
+            sim_code = client.post("/api/simulator/action", json={"text": "7777"})
+            assert sim_code.status_code == 200
+            assert "Silogizm Testi Pro" in sim_code.json()["text"]
+
+            # Test Web Quiz Player API
+            w_start = client.post("/api/web-quiz/start", json={"quiz_id": quiz_id, "mode": "practice"})
+            assert w_start.status_code == 200
+            w_data = w_start.json()
+            att_id = w_data["attempt"]["id"]
+            q_id = w_data["questions"][0]["id"]
+
+            w_ans = client.post("/api/web-quiz/answer", json={"attempt_id": att_id, "question_id": q_id, "selected_option": "B"})
+            assert w_ans.status_code == 200
+            assert w_ans.json()["is_correct"] is True
+
+            w_fin = client.post("/api/web-quiz/finish", json={"attempt_id": att_id, "duration_sec": 15})
+            assert w_fin.status_code == 200
+            assert w_fin.json()["attempt"]["percentage"] == 100.0
+
+            # User CRUD & Admin role toggle
+            u_create = client.post(
+                "/api/users",
+                json={"telegram_id": 555001, "full_name": "Test Admin", "username": "tadmin", "xp": 50, "is_admin": True},
+            )
+            assert u_create.status_code == 200
+            created_uid = u_create.json()["id"]
+            assert u_create.json()["is_admin"] is True
+
+            users_list = client.get("/api/users").json()
+            assert any(u["telegram_id"] == 555001 and u["is_admin"] is True for u in users_list)
+
+            u_upd = client.put(
+                f"/api/users/{created_uid}",
+                json={
+                    "telegram_id": 555001,
+                    "full_name": "Updated User",
+                    "username": "updated_u",
+                    "xp": 120,
+                    "tests_completed": 2,
+                    "correct_answers": 8,
+                    "total_questions": 10,
+                    "is_admin": False,
+                },
+            )
+            assert u_upd.status_code == 200
+            assert u_upd.json()["full_name"] == "Updated User"
+            assert u_upd.json()["xp"] == 120
+            assert u_upd.json()["is_admin"] is False
+
+            u_reset = client.post(f"/api/users/{created_uid}/reset")
+            assert u_reset.status_code == 200
+            assert u_reset.json()["xp"] == 0
+            assert u_reset.json()["tests_completed"] == 0
+
+            u_del = client.delete(f"/api/users/{created_uid}")
+            assert u_del.status_code == 200
+            assert u_del.json()["deleted"] is True
+
+            # Attempt delete & clear
+            att_del = client.delete(f"/api/attempts/{att_id}")
+            assert att_del.status_code == 200
+            assert att_del.json()["deleted"] is True
+
+            att_clear = client.delete("/api/attempts")
+            assert att_clear.status_code == 200
+            assert "deleted_count" in att_clear.json()
+
+            # Credentials update & re-login verification
+            cred_res = client.post(
+                "/api/auth/credentials",
+                json={"current_password": "muxandis2026", "new_username": "superadmin", "new_password": "newpass2026"},
+            )
+            assert cred_res.status_code == 200
+            assert cred_res.json()["username"] == "superadmin"
+
+            client.post("/api/auth/logout")
+            assert client.get("/api/stats").status_code == 401
+            assert client.post("/api/auth/login", json={"username": "muxandis", "password": "muxandis2026"}).status_code == 401
+            assert client.post("/api/auth/login", json={"username": "superadmin", "password": "newpass2026"}).status_code == 200
+            assert client.get("/api/stats").status_code == 200
+    finally:
+        config.reload_settings()
 
 
 @pytest.mark.asyncio

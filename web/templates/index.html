@@ -10,7 +10,44 @@
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
-  <div class="app-shell">
+  <!-- Full-Screen Studio Login Gate -->
+  <div id="authOverlay" class="auth-overlay">
+    <div class="auth-card glass-card">
+      <div class="auth-head">
+        <div class="brand-logo" style="margin:0 auto 12px;">🔐</div>
+        <h1>TestMaster Bot Studio</h1>
+        <p class="muted">Interaktiv Telegram Test Tizimi &amp; Boshqaruv Paneli</p>
+      </div>
+      <div id="authErrorBox" class="auth-error hidden"></div>
+      <form onsubmit="loginStudio(event)" class="stack-form">
+        <div>
+          <label class="field-lbl" for="loginUsername">Login</label>
+          <input
+            id="loginUsername"
+            class="input"
+            type="text"
+            placeholder="Loginni kiriting"
+            autocomplete="username"
+            required
+          />
+        </div>
+        <div>
+          <label class="field-lbl" for="loginPassword">Parol</label>
+          <input
+            id="loginPassword"
+            class="input"
+            type="password"
+            placeholder="Parolni kiriting"
+            autocomplete="current-password"
+            required
+          />
+        </div>
+        <button type="submit" class="btn btn-primary w-full" id="loginSubmitBtn">🔐 Tizimga kirish</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="appShell" class="app-shell hidden">
     <!-- Top Header -->
     <header class="topbar">
       <div class="brand">
@@ -26,8 +63,15 @@
           <span class="dot"></span>
           <span id="botStatusText">Tekshirilmoqda...</span>
         </div>
+        <div class="status-pill">
+          <span>👤</span>
+          <span id="adminUsernameText">admin</span>
+        </div>
         <button class="btn btn-primary btn-sm" onclick="switchTab('settings')">
           🤖 Botni Ulash
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick="logoutStudio()">
+          🚪 Chiqish
         </button>
       </div>
     </header>
@@ -42,6 +86,9 @@
       </button>
       <button class="tab-btn" data-tab="admin" onclick="switchTab('admin')">
         📚 Testlar va Savollar
+      </button>
+      <button class="tab-btn" data-tab="users" onclick="switchTab('users')">
+        👥 Foydalanuvchilar
       </button>
       <button class="tab-btn" data-tab="leaderboard" onclick="switchTab('leaderboard')">
         🏆 Reyting va Statistika
@@ -391,6 +438,60 @@
       </div>
     </main>
 
+    <!-- TAB 3.5: User Management & Broadcast -->
+    <main id="tab-users" class="tab-panel">
+      <div class="users-layout">
+        <div class="glass-card">
+          <div class="card-head row-between">
+            <div>
+              <h2>👥 Foydalanuvchilarni Boshqarish</h2>
+              <p class="muted">Telegram ID, ism, XP, statistika va admin rollarini to'liq tahrirlash</p>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" onclick="openCreateUserModal()">➕ Yangi foydalanuvchi</button>
+          </div>
+
+          <div class="users-toolbar">
+            <input
+              id="userSearchInput"
+              class="input"
+              type="text"
+              placeholder="Ism, @username yoki Telegram ID bo'yicha qidirish..."
+              oninput="renderUsersTable()"
+            />
+            <select id="userRoleFilter" class="input input-sm" onchange="renderUsersTable()">
+              <option value="all">Barchasi</option>
+              <option value="admin">🛡 Faqat Adminlar</option>
+              <option value="user">👤 Oddiy foydalanuvchilar</option>
+            </select>
+          </div>
+
+          <div id="usersTableWrap" class="table-wrap"></div>
+        </div>
+
+        <div class="glass-card">
+          <div class="card-head">
+            <h3>📢 Telegram E'lon Yuborish</h3>
+            <p class="muted">Bot ulangan holatda barcha ro'yxatdan o'tgan Telegram foydalanuvchilarga xabar yuboradi</p>
+          </div>
+          <form onsubmit="sendBroadcast(event)" class="stack-form">
+            <div>
+              <label class="field-lbl" for="broadcastTextInput">Xabar matni</label>
+              <textarea
+                id="broadcastTextInput"
+                class="input"
+                rows="3"
+                placeholder="Barcha foydalanuvchilar uchun xabar matnini yozing..."
+                required
+              ></textarea>
+            </div>
+            <div>
+              <button type="submit" class="btn btn-primary">📨 Hammaga Telegram xabar yuborish</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </main>
+
     <!-- TAB 4: Leaderboard & Recent Activity -->
     <main id="tab-leaderboard" class="tab-panel">
       <div class="lb-grid">
@@ -405,8 +506,9 @@
         </div>
 
         <div class="glass-card">
-          <div class="card-head">
+          <div class="card-head row-between">
             <h3>🕒 Oxirgi Yakunlangan Testlar</h3>
+            <button type="button" class="btn btn-danger btn-sm" onclick="clearAllAttemptsConfirm()">🧹 Hammasini tozalash</button>
           </div>
           <div id="recentAttemptsWrap"></div>
         </div>
@@ -455,6 +557,54 @@
 
         <div class="glass-card">
           <div class="card-head">
+            <h3>🔐 Admin Panel Login va Parolni O'zgartirish</h3>
+            <p class="muted">TestMaster Bot Studio boshqaruv paneliga kirish ma'lumotlarini yangilang.</p>
+          </div>
+
+          <form onsubmit="updateStudioCredentials(event)" class="stack-form">
+            <div>
+              <label class="field-lbl" for="credCurrentPassword">Joriy parol</label>
+              <input
+                id="credCurrentPassword"
+                class="input"
+                type="password"
+                placeholder="Hozirgi parolingiz"
+                autocomplete="current-password"
+                required
+              />
+            </div>
+            <div>
+              <label class="field-lbl" for="credNewUsername">Yangi login</label>
+              <input
+                id="credNewUsername"
+                class="input"
+                type="text"
+                minlength="2"
+                placeholder="Masalan: muxandis"
+                autocomplete="username"
+                required
+              />
+            </div>
+            <div>
+              <label class="field-lbl" for="credNewPassword">Yangi parol (kamida 4 belgi)</label>
+              <input
+                id="credNewPassword"
+                class="input"
+                type="password"
+                minlength="4"
+                placeholder="Yangi kuchli parol"
+                autocomplete="new-password"
+                required
+              />
+            </div>
+            <div>
+              <button type="submit" class="btn btn-primary">🔑 Login va Parolni Yangilash</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="glass-card">
+          <div class="card-head">
             <h3>📖 Qadam-baqadam qo'llanma</h3>
           </div>
           <ol class="guide-steps">
@@ -467,6 +617,17 @@
         </div>
       </div>
     </main>
+  </div>
+
+  <!-- Studio Universal Modal -->
+  <div id="studioModal" class="modal-backdrop hidden" onclick="if (event.target === this) closeStudioModal()">
+    <div class="modal-card glass-card">
+      <div class="card-head row-between">
+        <h3 id="studioModalTitle">Tahrirlash</h3>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="closeStudioModal()">✖</button>
+      </div>
+      <div id="studioModalBody"></div>
+    </div>
   </div>
 
   <!-- Global Notification Toast -->

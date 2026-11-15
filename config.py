@@ -21,6 +21,8 @@ class Settings(BaseSettings):
 
     bot_token: str = ""
     admin_ids: str = "123456789"
+    admin_login: str = "muxandis"
+    admin_password: str = "muxandis2026"
     database_path: str = "quiz_bot.db"
     host: str = Field(default_factory=_default_host)
     port: int = 8000
@@ -71,15 +73,30 @@ def reload_settings(override_env: bool = False) -> Settings:
     return _settings
 
 
-def update_env_settings(bot_token: str | None = None, admin_ids: str | None = None) -> Settings:
-    """Persist updated BOT_TOKEN and/or ADMIN_IDS to .env and reload settings."""
+def update_env_settings(
+    bot_token: str | None = None,
+    admin_ids: str | None = None,
+    admin_login: str | None = None,
+    admin_password: str | None = None,
+) -> Settings:
+    """Persist updated BOT_TOKEN, ADMIN_IDS, and/or admin credentials to .env and reload settings."""
     if not ENV_PATH.exists():
         ENV_PATH.write_text(
-            "BOT_TOKEN=\nADMIN_IDS=123456789\nDATABASE_PATH=quiz_bot.db\nHOST=127.0.0.1\nPORT=8000\n",
+            "BOT_TOKEN=\n"
+            "ADMIN_IDS=123456789\n"
+            "ADMIN_LOGIN=muxandis\n"
+            "ADMIN_PASSWORD=muxandis2026\n"
+            "DATABASE_PATH=quiz_bot.db\n"
+            "HOST=127.0.0.1\n"
+            "PORT=8000\n",
             encoding="utf-8",
         )
     if bot_token is not None:
         set_key(str(ENV_PATH), "BOT_TOKEN", bot_token.strip(), quote_mode="never")
     if admin_ids is not None:
         set_key(str(ENV_PATH), "ADMIN_IDS", admin_ids.strip(), quote_mode="never")
+    if admin_login is not None:
+        set_key(str(ENV_PATH), "ADMIN_LOGIN", admin_login.strip(), quote_mode="auto")
+    if admin_password is not None:
+        set_key(str(ENV_PATH), "ADMIN_PASSWORD", admin_password, quote_mode="auto")
     return reload_settings(override_env=True)
