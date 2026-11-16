@@ -564,7 +564,7 @@
             <div class="card-head row-between">
               <div>
                 <h2>👥 Foydalanuvchilarni Boshqarish</h2>
-                <p class="muted">Telegram ID, ism, XP, statistika va admin rollarini to'liq tahrirlash</p>
+                <p class="muted">Foydalanuvchi ustiga bosing yoki 💬 tugmasini tanlab profil va chatlar tarixini ko'ring</p>
               </div>
               <button type="button" class="btn btn-primary btn-sm" onclick="openCreateUserModal()">
                 ➕ Yangi foydalanuvchi
@@ -593,6 +593,79 @@
             </div>
 
             <div id="usersTableWrap" class="table-wrap"></div>
+          </div>
+
+          <!-- Selected User Profile & Chat History Section -->
+          <div id="userDetailPanel" class="glass-card user-detail-card hidden">
+            <div class="card-head row-between">
+              <div class="user-profile-head">
+                <div class="user-avatar-lg" id="userDetailAvatar" aria-hidden="true">👤</div>
+                <div>
+                  <h3 id="userDetailTitle">Foydalanuvchi profili</h3>
+                  <p id="userDetailMeta" class="muted text-sm m-0"></p>
+                </div>
+              </div>
+              <div class="btn-row">
+                <button type="button" class="btn btn-ghost btn-sm" id="userDetailEditBtn">
+                  ✏️ Ma'lumotlarni tahrirlash
+                </button>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="closeUserDetailPanel()">
+                  ✕ Yopish
+                </button>
+              </div>
+            </div>
+
+            <!-- User KPI summary -->
+            <div id="userDetailStats" class="kpi-grid user-kpi-grid"></div>
+
+            <!-- User Recent Attempts -->
+            <div class="user-subsection">
+              <h4 class="subhead">📝 Ishlangan testlar tarixi</h4>
+              <div id="userDetailAttempts" class="table-wrap"></div>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- User Chat History (at the bottom of user view) -->
+            <div class="user-chat-section">
+              <div class="row-between mb-3">
+                <div>
+                  <h3 class="m-0">💬 Chatlar Tarixi (<span id="userChatCount">0</span> ta xabar)</h3>
+                  <p class="muted text-sm m-0">Foydalanuvchining botdagi barcha yozishmalari, bosgan tugmalari va javoblari</p>
+                </div>
+                <div class="btn-row">
+                  <input
+                    id="userChatSearchInput"
+                    class="input input-sm question-search-input"
+                    type="search"
+                    placeholder="Chat ichidan qidirish..."
+                    aria-label="Chat tarixidan qidirish"
+                    oninput="renderSelectedUserChatMessages()"
+                  />
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="refreshSelectedUserChats()">
+                    🔄 Yangilash
+                  </button>
+                  <button type="button" class="btn btn-danger btn-sm" onclick="clearSelectedUserChatsConfirm()">
+                    🧹 Tarixni tozalash
+                  </button>
+                </div>
+              </div>
+
+              <div class="chat-history-frame">
+                <div id="userChatHistoryList" class="chat-history-messages" aria-live="polite"></div>
+                <form class="chat-history-reply-bar" onsubmit="sendSelectedUserChatReply(event)">
+                  <input
+                    id="userChatReplyInput"
+                    type="text"
+                    placeholder="Ushbu foydalanuvchiga Telegram orqali xabar yuborish..."
+                    aria-label="Foydalanuvchiga xabar yozish"
+                    autocomplete="off"
+                    required
+                  />
+                  <button type="submit" class="btn btn-primary btn-sm">📨 Yuborish</button>
+                </form>
+              </div>
+            </div>
           </div>
 
           <div class="glass-card">

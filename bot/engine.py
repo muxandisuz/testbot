@@ -173,6 +173,54 @@ async def _render_question_at_index(
     return EngineResponse(text=text, keyboard=markup, toast=toast)
 
 
+def _describe_callback_action(data: str) -> str:
+    """Convert raw callback_data into a human-readable Uzbek action label for chat history."""
+    raw = (data or "").strip()
+    parts = raw.split(":")
+    action = parts[0] if parts else ""
+
+    if raw == "m:main":
+        return "🏠 Bosh menyu"
+    if raw in {"c:list", "qz:start_main"}:
+        return "📝 Test ishlash"
+    if action == "c" and len(parts) >= 3 and parts[1] == "v":
+        return f"📚 Fan tanlandi (#{parts[2]})"
+    if action == "qz" and len(parts) >= 3:
+        sub = parts[1]
+        if sub == "i":
+            return f"ℹ️ Test ma'lumotlari (#{parts[2]})"
+        if sub == "s" and len(parts) >= 4:
+            mode_lbl = "Imtihon rejimi" if parts[3] == "e" else "Mashq rejimi"
+            return f"▶️ Testni boshlash ({mode_lbl})"
+        if sub == "n" and len(parts) >= 4 and parts[3].lstrip("-").isdigit():
+            return f"➡️ {int(parts[3]) + 1}-savolga o'tish"
+        if sub == "a" and len(parts) >= 5:
+            return f"✍️ Javob belgilandi: {parts[4].upper()} varianti"
+        if sub == "map":
+            return "🗺 Savollar xaritasi"
+        if sub == "f":
+            return "🏁 Testni topshirish"
+        if sub == "fc":
+            return "🚪 Testni yakunlash va natijani ko'rish"
+        if sub == "res":
+            return "📊 Test natijasi"
+        if sub == "r":
+            return "🔍 Savollar tahlili"
+    if raw == "rnd:s":
+        return "🎲 Tasodifiy test"
+    if raw == "code:p":
+        return "🔑 Kod orqali kirish"
+    if raw == "st:me":
+        return "📊 Statistikam"
+    if action == "lb":
+        return "🏆 Reyting jadvali"
+    if raw == "hp:v":
+        return "ℹ️ Qoidalar"
+    if action == "adm":
+        return f"⚙️ Admin panel ({raw})"
+    return f"📲 Tugma bosildi: {raw}"
+
+
 async def handle_callback(
     telegram_id: int,
     full_name: str,
@@ -181,7 +229,41 @@ async def handle_callback(
     is_admin: bool = False,
     db_path: Path | str | None = None,
 ) -> EngineResponse:
-    """Process any inline button callback_data and return the next EngineResponse."""
+    """Process any inline button callback_data, log chat history, and return the next EngineResponse."""
+    await db.get_or_create_user(telegram_id, full_name, username, db_path=db_path)
+    await db.log_chat_message(
+        telegram_id=telegram_id,
+        sender="user",
+        content=_describe_callback_action(data),
+        action_type="callback",
+        db_path=db_path,
+    )
+    resp = await _handle_callback_inner(
+        telegram_id=telegram_id,
+        full_name=full_name,
+        username=username,
+        data=data,
+        is_admin=is_admin,
+        db_path=db_path,
+    )
+    await db.log_chat_message(
+        telegram_id=telegram_id,
+        sender="bot",
+        content=resp.text,
+        action_type="reply",
+        db_path=db_path,
+    )
+    return resp
+
+
+async def _handle_callback_inner(
+    telegram_id: int,
+    full_name: str,
+    username: str | None,
+    data: str,
+    is_admin: bool = False,
+    db_path: Path | str | None = None,
+) -> EngineResponse:
     user = await db.get_or_create_user(telegram_id, full_name, username, db_path=db_path)
     parts = (data or "").split(":")
     action = parts[0] if parts else ""
@@ -421,10 +503,42 @@ async def handle_text_message(
     is_admin: bool = False,
     db_path: Path | str | None = None,
 ) -> EngineResponse:
-    """Process text commands (/start, /help, /stats, /top, /admin) and quiz codes."""
+    """Process text commands (/start, /help, /stats, /top, /admin), quiz codes, and log chat history."""
     raw = (text or "").strip()
     await db.get_or_create_user(telegram_id, full_name, username, db_path=db_path)
+    await db.log_chat_message(
+        telegram_id=telegram_id,
+        sender="user",
+        content=raw or "/start",
+        action_type="text",
+        db_path=db_path,
+    )
+    resp = await _handle_text_message_inner(
+        telegram_id=telegram_id,
+        full_name=full_name,
+        username=username,
+        raw=raw,
+        is_admin=is_admin,
+        db_path=db_path,
+    )
+    await db.log_chat_message(
+        telegram_id=telegram_id,
+        sender="bot",
+        content=resp.text,
+        action_type="reply",
+        db_path=db_path,
+    )
+    return resp
 
+
+async def _handle_text_message_inner(
+    telegram_id: int,
+    full_name: str,
+    username: str | None,
+    raw: str,
+    is_admin: bool = False,
+    db_path: Path | str | None = None,
+) -> EngineResponse:
     if raw.startswith("/start"):
         args = raw.split(maxsplit=1)
         if len(args) == 2 and args[1].strip():

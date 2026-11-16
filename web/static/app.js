@@ -12,6 +12,8 @@ const state = {
   authUsername: null,
   activeCategoryFilter: null,
   selectedQuizId: null,
+  selectedUserId: null,
+  selectedUserDetail: null,
   simAwaitingInput: null,
   webQuiz: null,
   webTimerHandle: null,
@@ -245,9 +247,25 @@ async function refreshAll() {
 // TAB 4: User Management & Broadcast
 // ---------------------------------------------------------------------------
 
+function formatDateTime(isoStr) {
+  if (!isoStr) return "—";
+  const d = new Date(isoStr);
+  if (Number.isNaN(d.getTime())) return String(isoStr).slice(0, 16);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 async function loadUsers() {
   state.users = await apiFetch("/api/users");
   renderUsersTable();
+  if (state.selectedUserId) {
+    const stillExists = state.users.some((u) => u.id === state.selectedUserId);
+    if (stillExists) {
+      await refreshSelectedUserChats();
+    } else {
+      closeUserDetailPanel();
+    }
+  }
 }
 
 function renderUsersTable() {
@@ -286,7 +304,7 @@ function renderUsersTable() {
         ${filtered
           .map(
             (u) => `
-          <tr>
+          <tr class="clickable-row ${state.selectedUserId === u.id ? "selected-row" : ""}" onclick="openUserProfileAndChats(${u.id})">
             <td data-label="Foydalanuvchi">
               <div>
                 <strong>${escapeHtml(u.full_name)}</strong>
@@ -302,8 +320,9 @@ function renderUsersTable() {
             <td data-label="XP"><strong>${u.xp}</strong> XP</td>
             <td data-label="Testlar">${u.tests_completed}</td>
             <td data-label="Aniqlik">${u.accuracy}% (${u.correct_answers}/${u.total_questions})</td>
-            <td data-label="Amallar">
+            <td data-label="Amallar" onclick="event.stopPropagation()">
               <div class="actions-cell">
+                <button type="button" class="btn btn-primary btn-sm" title="Profil va chatlar tarixini ko'rish" onclick="openUserProfileAndChats(${u.id})">💬 Chatlar</button>
                 <button type="button" class="btn btn-ghost btn-sm" title="Tahrirlash" onclick="openEditUserModal(${u.id})">✏️</button>
                 <button type="button" class="btn btn-ghost btn-sm" title="Telegram xabar yuborish" onclick="openMessageUserModal(${u.id})">✉️</button>
                 <button type="button" class="btn btn-ghost btn-sm" title="Statistikani nollash" onclick="resetUserStatsConfirm(${u.id})">🔄</button>
@@ -316,6 +335,198 @@ function renderUsersTable() {
       </tbody>
     </table>
   `;
+}
+
+function renderChatBubbleItem(msg, userFullName) {
+  const senderClass =
+    msg.sender === "user" ? "is-user" : msg.sender === "admin" ? "is-admin" : "is-bot";
+  const senderLabel =
+    msg.sender === "user"
+      ? `👤 ${escapeHtml(userFullName || "Foydalanuvchi")}`
+      : msg.sender === "admin"
+      ? "👑 Admin xabari"
+      : "🤖 TestMaster Bot";
+  const typeTag =
+    msg.action_type === "callback"
+      ? "📲 Tugma"
+      : msg.action_type === "admin_message"
+      ? "📨 Telegram xabar"
+      : "";
+  const bodyHtml =
+    msg.sender === "user"
+      ? escapeHtml(msg.content).replace(/\n/g, "<br>")
+      : renderSafeTelegramHtml(msg.content);
+
+  return `
+    <div class="chat-msg-item ${senderClass}">
+      <div class="chat-msg-meta">
+        <strong>${senderLabel}</strong>
+        ${typeTag ? `<span>· ${typeTag}</span>` : ""}
+        <span class="mono">${formatDateTime(msg.created_at)}</span>
+      </div>
+      <div class="chat-msg-bubble">${bodyHtml}</div>
+    </div>
+  `;
+}
+
+async function openUserProfileAndChats(userId) {
+  state.selectedUserId = userId;
+  renderUsersTable();
+  try {
+    const data = await apiFetch(`/api/users/${userId}/chats`);
+    state.selectedUserDetail = data;
+    renderSelectedUserDetail();
+    const panel = $id("userDetailPanel");
+    if (panel) {
+      panel.classList.remove("hidden");
+      panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  } catch (err) {
+    showGlobalToast(`❌ ${err.message}`, 4500);
+  }
+}
+
+async function refreshSelectedUserChats() {
+  if (!state.selectedUserId) return;
+  try {
+    const data = await apiFetch(`/api/users/${state.selectedUserId}/chats`);
+    state.selectedUserDetail = data;
+    renderSelectedUserDetail();
+  } catch {
+    // Ignore background refresh error
+  }
+}
+
+function renderSelectedUserDetail() {
+  const detail = state.selectedUserDetail;
+  if (!detail || !detail.user) return;
+  const u = detail.user;
+  const attempts = detail.attempts || [];
+
+  $id("userDetailAvatar").textContent = u.is_admin ? "🛡" : "👤";
+  $id("userDetailTitle").textContent = `${u.full_name} ${u.username ? `(@${u.username})` : ""}`;
+  $id("userDetailMeta").textContent = `Telegram ID: ${u.telegram_id} · Ro'yxatdan o'tgan: ${formatDateTime(u.created_at)}`;
+
+  const editBtn = $id("userDetailEditBtn");
+  if (editBtn) {
+    editBtn.onclick = () => openEditUserModal(u.id);
+  }
+
+  $id("userDetailStats").innerHTML = `
+    <div class="kpi-card"><span class="kpi-icon">💎</span><div><div class="kpi-val">${u.xp} XP</div><div class="kpi-lbl">Ball</div></div></div>
+    <div class="kpi-card"><span class="kpi-icon">📝</span><div><div class="kpi-val">${u.tests_completed} ta</div><div class="kpi-lbl">Yakunlangan test</div></div></div>
+    <div class="kpi-card"><span class="kpi-icon">🎯</span><div><div class="kpi-val">${u.accuracy}%</div><div class="kpi-lbl">Aniqlik</div></div></div>
+    <div class="kpi-card"><span class="kpi-icon">✅</span><div><div class="kpi-val">${u.correct_answers}/${u.total_questions}</div><div class="kpi-lbl">To'g'ri / Jami</div></div></div>
+  `;
+
+  const attWrap = $id("userDetailAttempts");
+  if (!attempts.length) {
+    attWrap.innerHTML = `<p class="muted text-sm">Hozircha ishlangan testlar yo'q.</p>`;
+  } else {
+    attWrap.innerHTML = `
+      <table class="data-table responsive-table">
+        <thead>
+          <tr>
+            <th>Test</th>
+            <th>Rejim</th>
+            <th>Natija</th>
+            <th>Vaqt</th>
+            <th>Sana</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${attempts
+            .map(
+              (a) => `
+            <tr>
+              <td data-label="Test"><strong>${escapeHtml(a.quiz_title)}</strong> <span class="mono muted">#${escapeHtml(a.quiz_code)}</span></td>
+              <td data-label="Rejim">${a.mode === "practice" ? "⚡️ Mashq" : "🎓 Imtihon"}</td>
+              <td data-label="Natija">
+                ${
+                  a.is_completed
+                    ? `<strong>${a.percentage}%</strong> (✅ ${a.correct_count} / ❌ ${a.wrong_count})`
+                    : `<span class="badge">⏳ Jarayonda</span>`
+                }
+              </td>
+              <td data-label="Vaqt" class="mono">${formatDuration(a.duration_sec)}</td>
+              <td data-label="Sana" class="mono text-sm">${formatDateTime(a.finished_at || a.started_at)}</td>
+            </tr>`
+            )
+            .join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
+  renderSelectedUserChatMessages();
+}
+
+function renderSelectedUserChatMessages() {
+  const detail = state.selectedUserDetail;
+  if (!detail || !detail.user) return;
+  const allMessages = detail.messages || [];
+  const query = ($id("userChatSearchInput")?.value || "").trim().toLowerCase();
+  const filtered = query
+    ? allMessages.filter((m) => String(m.content || "").toLowerCase().includes(query))
+    : allMessages;
+
+  $id("userChatCount").textContent = allMessages.length;
+  const listEl = $id("userChatHistoryList");
+  if (!listEl) return;
+
+  if (!filtered.length) {
+    listEl.innerHTML = `<p class="muted text-sm m-0">${
+      query ? "Qidiruv bo'yicha yozishma topilmadi." : "Ushbu foydalanuvchida hozircha chat yozishmalari mavjud emas."
+    }</p>`;
+    return;
+  }
+
+  listEl.innerHTML = filtered.map((m) => renderChatBubbleItem(m, detail.user.full_name)).join("");
+  listEl.scrollTop = listEl.scrollHeight;
+}
+
+function closeUserDetailPanel() {
+  state.selectedUserId = null;
+  state.selectedUserDetail = null;
+  $id("userDetailPanel")?.classList.add("hidden");
+  renderUsersTable();
+}
+
+async function clearSelectedUserChatsConfirm() {
+  const detail = state.selectedUserDetail;
+  if (!detail || !detail.user) return;
+  if (!confirm(`"${detail.user.full_name}" ning chatlar tarixi tozalansinmi?`)) return;
+  try {
+    const res = await apiFetch(`/api/users/${detail.user.id}/chats`, { method: "DELETE" });
+    await refreshSelectedUserChats();
+    showGlobalToast(`🧹 Chat tarixi tozalandi (${res.deleted_count} ta xabar)`);
+  } catch (err) {
+    showGlobalToast(`❌ ${err.message}`, 4500);
+  }
+}
+
+async function sendSelectedUserChatReply(e) {
+  e.preventDefault();
+  const detail = state.selectedUserDetail;
+  if (!detail || !detail.user) return;
+  const input = $id("userChatReplyInput");
+  const text = input.value.trim();
+  if (!text) return;
+  try {
+    const res = await apiFetch("/api/bot/broadcast", {
+      method: "POST",
+      body: JSON.stringify({ text, telegram_id: detail.user.telegram_id }),
+    });
+    input.value = "";
+    await refreshSelectedUserChats();
+    if (res.sent > 0) {
+      showGlobalToast("✅ Xabar yuborildi va chat tarixiga qo'shildi");
+    } else {
+      showGlobalToast("⚠️ Chat tarixiga yozildi, ammo foydalanuvchi botni bloklagan bo'lishi mumkin", 4500);
+    }
+  } catch (err) {
+    showGlobalToast(`❌ ${err.message}`, 4500);
+  }
 }
 
 function openCreateUserModal() {
@@ -421,8 +632,39 @@ function openEditUserModal(userId) {
         <button type="submit" class="btn btn-primary">💾 O'zgarishlarni Saqlash</button>
         <button type="button" class="btn btn-ghost" onclick="closeStudioModal()">Bekor qilish</button>
       </div>
-    </form>`
+    </form>
+
+    <div class="divider"></div>
+    <div class="row-between mb-2">
+      <h4 class="subhead m-0">💬 Chatlar tarixi</h4>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="closeStudioModal(); openUserProfileAndChats(${user.id})">
+        🔍 To'liq chat oynasida ochish
+      </button>
+    </div>
+    <div class="chat-history-frame">
+      <div id="modalUserChatList" class="chat-history-messages modal-chat-box">
+        <p class="muted text-sm m-0">Yuklanmoqda...</p>
+      </div>
+    </div>`
   );
+  loadModalUserChatPreview(user.id, user.full_name);
+}
+
+async function loadModalUserChatPreview(userId, userFullName) {
+  const box = $id("modalUserChatList");
+  if (!box) return;
+  try {
+    const data = await apiFetch(`/api/users/${userId}/chats?limit=50`);
+    const msgs = data.messages || [];
+    if (!msgs.length) {
+      box.innerHTML = `<p class="muted text-sm m-0">Hozircha chat yozishmalari mavjud emas.</p>`;
+      return;
+    }
+    box.innerHTML = msgs.map((m) => renderChatBubbleItem(m, userFullName)).join("");
+    box.scrollTop = box.scrollHeight;
+  } catch {
+    box.innerHTML = `<p class="muted text-sm m-0">Chat tarixini yuklab bo'lmadi.</p>`;
+  }
 }
 
 async function submitEditUser(e, userId) {

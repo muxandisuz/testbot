@@ -421,6 +421,29 @@ def test_fastapi_endpoints_and_simulator(tmp_path: Path, monkeypatch: pytest.Mon
             assert u_reset.json()["xp"] == 0
             assert u_reset.json()["tests_completed"] == 0
 
+            # User Chat History: simulate user actions, admin message, fetch & clear history
+            client.post(
+                "/api/simulator/action",
+                json={"telegram_id": 555001, "full_name": "Updated User", "username": "updated_u", "text": "/start"},
+            )
+            client.post(
+                "/api/bot/broadcast",
+                json={"text": "Admin test xabari", "telegram_id": 555001},
+            )
+            chats_res = client.get(f"/api/users/{created_uid}/chats")
+            assert chats_res.status_code == 200
+            chats_data = chats_res.json()
+            assert chats_data["user"]["id"] == created_uid
+            senders = [m["sender"] for m in chats_data["messages"]]
+            assert "user" in senders
+            assert "bot" in senders
+            assert "admin" in senders
+
+            clear_chats_res = client.delete(f"/api/users/{created_uid}/chats")
+            assert clear_chats_res.status_code == 200
+            assert clear_chats_res.json()["deleted_count"] >= 3
+            assert client.get(f"/api/users/{created_uid}/chats").json()["messages"] == []
+
             u_del = client.delete(f"/api/users/{created_uid}")
             assert u_del.status_code == 200
             assert u_del.json()["deleted"] is True

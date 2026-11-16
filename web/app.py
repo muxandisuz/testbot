@@ -388,6 +388,36 @@ async def api_delete_user(
     return {"deleted": True}
 
 
+@app.get("/api/users/{user_id}/chats")
+async def api_get_user_chats(
+    user_id: int,
+    limit: int = 200,
+    _: str = Depends(require_studio_auth),
+) -> dict[str, Any]:
+    user = await db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Foydalanuvchi topilmadi")
+    messages = await db.list_user_chat_history(user_id=user_id, limit=limit)
+    attempts = await db.list_user_attempts(user_id=user_id, limit=30)
+    return {
+        "user": _attach_admin_flag(user),
+        "messages": messages,
+        "attempts": attempts,
+    }
+
+
+@app.delete("/api/users/{user_id}/chats")
+async def api_clear_user_chats(
+    user_id: int,
+    _: str = Depends(require_studio_auth),
+) -> dict[str, int]:
+    user = await db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Foydalanuvchi topilmadi")
+    deleted_count = await db.clear_user_chat_history(user_id=user_id)
+    return {"deleted_count": deleted_count}
+
+
 # ---------------------------------------------------------------------------
 # Categories & Quizzes & Questions CRUD
 # ---------------------------------------------------------------------------
@@ -737,6 +767,18 @@ async def api_bot_broadcast(
         target_ids = [int(u["telegram_id"]) for u in users if int(u["telegram_id"]) != 999000111]
     if not target_ids:
         return {"sent": 0, "failed": 0, "total": 0}
+
+    for tid in target_ids:
+        await db.log_chat_message(
+            telegram_id=tid,
+            sender="admin",
+            content=payload.text,
+            action_type="admin_message",
+        )
+
+    if not get_settings().bot_token.strip():
+        return {"sent": len(target_ids), "failed": 0, "total": len(target_ids)}
+
     try:
         res = await bot_manager.send_message_to_users(target_ids, payload.text)
     except (ValueError, RuntimeError) as exc:

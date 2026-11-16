@@ -135,6 +135,17 @@ CREATE TABLE IF NOT EXISTS app_settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    telegram_id INTEGER NOT NULL,
+    sender TEXT NOT NULL CHECK (sender IN ('user', 'bot', 'admin')),
+    action_type TEXT NOT NULL DEFAULT 'text',
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
 """
 
 
@@ -146,6 +157,7 @@ async def init_db(db_path: Path | str | None = None) -> None:
     await cleanup_legacy_non_falsafa_data(db_path)
     await seed_database(db_path)
     await ensure_falsafa_seeded(db_path)
+    await backfill_chat_history_if_needed(db_path)
 
 
 async def cleanup_legacy_non_falsafa_data(db_path: Path | str | None = None) -> None:
@@ -1474,3 +1486,206 @@ async def clear_all_attempts(db_path: Path | str | None = None) -> int:
         )
         await db.commit()
         return deleted_count
+
+
+# ---------------------------------------------------------------------------
+# User Chat History & Attempts History
+# ---------------------------------------------------------------------------
+
+async def backfill_chat_history_if_needed(db_path: Path | str | None = None) -> None:
+    """Populate initial chat history for pre-existing users who have not yet been logged in chat_messages."""
+    async with get_db(db_path) as db:
+        flag_cur = await db.execute(
+            "SELECT value FROM app_settings WHERE key = 'chat_history_backfilled'"
+        )
+        if await flag_cur.fetchone():
+            return
+
+        users_cur = await db.execute(
+            "SELECT * FROM users WHERE telegram_id != 999000111 ORDER BY id ASC"
+        )
+        users = [dict(r) for r in await users_cur.fetchall()]
+
+        for u in users:
+            uid = int(u["id"])
+            tid = int(u["telegram_id"])
+            cnt_cur = await db.execute(
+                "SELECT COUNT(*) AS cnt FROM chat_messages WHERE user_id = ?",
+                (uid,),
+            )
+            if int((await cnt_cur.fetchone())["cnt"]) > 0:
+                continue
+
+            created_ts = u.get("created_at") or _utc_now_iso()
+            await db.execute(
+                """
+                INSERT INTO chat_messages (user_id, telegram_id, sender, action_type, content, created_at)
+                VALUES (?, ?, 'user', 'text', '/start', ?)
+                """,
+                (uid, tid, created_ts),
+            )
+            await db.execute(
+                """
+                INSERT INTO chat_messages (user_id, telegram_id, sender, action_type, content, created_at)
+                VALUES (?, ?, 'bot', 'reply', ?, ?)
+                """,
+                (
+                    uid,
+                    tid,
+                    f"🦉 <b>Falsafa Test Botga xush kelibsiz!</b>\n👤 Foydalanuvchi: <b>{u['full_name']}</b>",
+                    created_ts,
+                ),
+            )
+
+            att_cur = await db.execute(
+                """
+                SELECT a.*, q.title AS quiz_title, q.code AS quiz_code
+                FROM attempts a
+                JOIN quizzes q ON q.id = a.quiz_id
+                WHERE a.user_id = ?
+                ORDER BY a.id ASC
+                """,
+                (uid,),
+            )
+            for att in await att_cur.fetchall():
+                a = dict(att)
+                started_ts = a.get("started_at") or created_ts
+                mode_label = "Mashq rejimi" if a["mode"] == "practice" else "Imtihon rejimi"
+                await db.execute(
+                    """
+                    INSERT INTO chat_messages (user_id, telegram_id, sender, action_type, content, created_at)
+                    VALUES (?, ?, 'user', 'callback', ?, ?)
+                    """,
+                    (
+                        uid,
+                        tid,
+                        f"▶️ Test boshlandi: {a['quiz_title']} (#{a['quiz_code']} · {mode_label})",
+                        started_ts,
+                    ),
+                )
+                if a["is_completed"]:
+                    fin_ts = a.get("finished_at") or started_ts
+                    await db.execute(
+                        """
+                        INSERT INTO chat_messages (user_id, telegram_id, sender, action_type, content, created_at)
+                        VALUES (?, ?, 'bot', 'reply', ?, ?)
+                        """,
+                        (
+                            uid,
+                            tid,
+                            (
+                                f"🎉 <b>Test yakunlandi — {a['quiz_title']}</b>\n"
+                                f"📊 Natija: <b>{a['percentage']}%</b> "
+                                f"(✅ To'g'ri: {a['correct_count']} · ❌ Xato: {a['wrong_count']} · ⏭ O'tkazilgan: {a['skipped_count']})"
+                            ),
+                            fin_ts,
+                        ),
+                    )
+
+        await db.execute(
+            """
+            INSERT INTO app_settings (key, value) VALUES ('chat_history_backfilled', '1')
+            ON CONFLICT(key) DO UPDATE SET value = '1'
+            """
+        )
+        await db.commit()
+
+
+async def log_chat_message(
+    telegram_id: int,
+    sender: str,
+    content: str,
+    action_type: str = "text",
+    db_path: Path | str | None = None,
+) -> dict[str, Any] | None:
+    """Record a single chat message ('user', 'bot', or 'admin') in chat_messages."""
+    if sender not in {"user", "bot", "admin"}:
+        raise ValueError("Invalid sender type")
+    clean_content = (content or "").strip()
+    if not clean_content:
+        return None
+
+    async with get_db(db_path) as db:
+        u_cur = await db.execute(
+            "SELECT id, telegram_id FROM users WHERE telegram_id = ?",
+            (int(telegram_id),),
+        )
+        u_row = await u_cur.fetchone()
+        if not u_row:
+            return None
+        user_id = int(u_row["id"])
+        now_iso = _utc_now_iso()
+        cur = await db.execute(
+            """
+            INSERT INTO chat_messages (user_id, telegram_id, sender, action_type, content, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (user_id, int(telegram_id), sender, action_type, clean_content, now_iso),
+        )
+        msg_id = int(cur.lastrowid)
+        await db.commit()
+        row_cur = await db.execute("SELECT * FROM chat_messages WHERE id = ?", (msg_id,))
+        row = await row_cur.fetchone()
+        return dict(row) if row else None
+
+
+async def list_user_chat_history(
+    user_id: int,
+    limit: int = 200,
+    db_path: Path | str | None = None,
+) -> list[dict[str, Any]]:
+    """Return chronological chat history messages for a user (up to the most recent `limit` rows)."""
+    safe_limit = max(1, min(int(limit), 1000))
+    async with get_db(db_path) as db:
+        cur = await db.execute(
+            """
+            SELECT * FROM (
+                SELECT id, user_id, telegram_id, sender, action_type, content, created_at
+                FROM chat_messages
+                WHERE user_id = ?
+                ORDER BY id DESC
+                LIMIT ?
+            ) sub
+            ORDER BY id ASC
+            """,
+            (int(user_id), safe_limit),
+        )
+        return [dict(r) for r in await cur.fetchall()]
+
+
+async def list_user_attempts(
+    user_id: int,
+    limit: int = 30,
+    db_path: Path | str | None = None,
+) -> list[dict[str, Any]]:
+    """Return recent quiz attempts for a specific user."""
+    safe_limit = max(1, min(int(limit), 200))
+    async with get_db(db_path) as db:
+        cur = await db.execute(
+            """
+            SELECT
+                a.id, a.quiz_id, a.mode, a.score, a.total_points,
+                a.correct_count, a.wrong_count, a.skipped_count,
+                a.percentage, a.duration_sec, a.started_at, a.finished_at, a.is_completed,
+                q.title AS quiz_title, q.code AS quiz_code
+            FROM attempts a
+            JOIN quizzes q ON q.id = a.quiz_id
+            WHERE a.user_id = ?
+            ORDER BY a.id DESC
+            LIMIT ?
+            """,
+            (int(user_id), safe_limit),
+        )
+        return [dict(r) for r in await cur.fetchall()]
+
+
+async def clear_user_chat_history(
+    user_id: int,
+    db_path: Path | str | None = None,
+) -> int:
+    """Delete all stored chat history rows for a user and return deleted row count."""
+    async with get_db(db_path) as db:
+        cur = await db.execute("DELETE FROM chat_messages WHERE user_id = ?", (int(user_id),))
+        deleted = max(0, int(cur.rowcount or 0))
+        await db.commit()
+        return deleted
