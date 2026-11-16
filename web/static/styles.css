@@ -475,6 +475,34 @@ html[data-layout="topnav"] .tab-btn {
   flex: 0 0 auto;
 }
 
+/* SVG & Zenith Icons */
+.zenith-icon {
+  width: 17px;
+  height: 17px;
+  display: inline-block;
+  vertical-align: middle;
+  stroke-width: 2;
+  flex-shrink: 0;
+}
+
+.zenith-icon-lg {
+  width: 22px;
+  height: 22px;
+  display: inline-block;
+  vertical-align: middle;
+  stroke-width: 2;
+  flex-shrink: 0;
+}
+
+.btn-icon {
+  padding: 8px !important;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Workspace & Sticky Header */
 .zenith-workspace {
   flex: 1;
@@ -490,30 +518,102 @@ html[data-layout="topnav"] .tab-btn {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  padding: 12px 24px;
+  gap: 16px;
+  padding: 10px 24px;
   background: var(--bg-card);
   border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(12px);
 }
 
 .header-left {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
 }
 
 .breadcrumb {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.87rem;
+  font-size: 0.86rem;
+}
+
+.breadcrumb-separator {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+/* Zenith Global Command Search Bar */
+.header-search-wrap {
+  flex: 1;
+  max-width: 440px;
+  display: flex;
+  align-items: center;
+}
+
+.zenith-command-bar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  cursor: text;
+  transition: all var(--transition);
+}
+
+.zenith-command-bar:focus-within {
+  border-color: var(--primary);
+  background: var(--bg-card);
+  box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.2);
+}
+
+.zenith-command-bar .search-icon {
+  color: var(--muted);
+  width: 15px;
+  height: 15px;
+}
+
+.zenith-command-bar input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 0.83rem;
+  color: var(--text-bright);
+}
+
+.zenith-command-bar input::placeholder {
+  color: var(--muted);
+}
+
+.command-kbd {
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  user-select: none;
 }
 
 .topbar-right {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+  .header-search-wrap {
+    display: none;
+  }
 }
 
 .status-pill {
@@ -614,22 +714,52 @@ html[data-layout="topnav"] .tab-btn {
 }
 
 .kpi-lbl {
-  font-size: 0.79rem;
+  font-size: 0.77rem;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   color: var(--muted);
 }
 
 .kpi-icon {
-  font-size: 1rem;
+  color: var(--muted);
   opacity: 0.85;
+  display: flex;
+  align-items: center;
 }
 
 .kpi-val {
-  font-size: clamp(1.3rem, 1.8vw, 1.6rem);
+  font-size: clamp(1.35rem, 1.8vw, 1.65rem);
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--text-bright);
   line-height: 1.15;
+}
+
+.kpi-footer {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 2px;
+}
+
+.kpi-trend {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.71rem;
+  font-weight: 700;
+}
+
+.kpi-trend-up {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.kpi-trend-neutral {
+  background: rgba(161, 161, 170, 0.15);
+  color: var(--muted);
 }
 
 .kpi-sub {
