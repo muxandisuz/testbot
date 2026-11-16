@@ -368,9 +368,12 @@ a:focus-visible {
 }
 
 .tab-ico {
-  font-size: 1.02rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
   width: 20px;
+  height: 20px;
   text-align: center;
 }
 
@@ -684,9 +687,102 @@ html[data-layout="topnav"] .tab-btn {
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--gap-main);
   margin-bottom: var(--gap-main);
+}
+
+/* --------------------------------------------------------------------------
+   Zenith Overview Dashboard Grid
+   -------------------------------------------------------------------------- */
+
+.zenith-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 350px;
+  gap: var(--gap-main);
+  align-items: start;
+}
+
+.overview-main-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-main);
+  min-width: 0;
+}
+
+.overview-side-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-main);
+}
+
+.system-metric-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--bg-elevated);
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.sys-metric-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.83rem;
+}
+
+.sys-metric-lbl {
+  color: var(--muted);
+}
+
+.sys-metric-val {
+  font-family: inherit;
+  font-weight: 600;
+}
+
+.quick-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.quick-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 12px 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-bright);
+  font-family: inherit;
+  font-size: 0.79rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.quick-action-btn:hover {
+  background: var(--bg-card);
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.quick-action-btn .zenith-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--primary);
+}
+
+@media (max-width: 1024px) {
+  .zenith-overview-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .kpi-card {

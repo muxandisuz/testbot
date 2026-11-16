@@ -402,6 +402,7 @@ async function refreshAll() {
   await Promise.all([loadStats(), loadCategories(), loadQuizzes(), loadUsers()]);
   renderSimQuizChips();
   renderWebQuizLobby();
+  renderOverviewQuizzes(state.quizzes);
   renderAdminLists();
   renderUsersTable();
   populateLeaderboardFilter();
@@ -949,6 +950,12 @@ async function loadStats() {
   $id("kpiQuestions").textContent = data.questions_count;
   $id("kpiUsers").textContent = data.users_count;
   $id("kpiAvg").textContent = `${data.avg_percentage}%`;
+
+  const sysQ = $id("sysQuestionsCount");
+  if (sysQ) sysQ.textContent = `${data.questions_count} ta`;
+  const sysU = $id("sysUsersCount");
+  if (sysU) sysU.textContent = `${data.users_count} ta`;
+
   updateBotStatusUI(data.bot_status, data.admin_ids);
   renderRecentAttempts(data.recent_attempts || []);
 }
@@ -1943,40 +1950,107 @@ async function loadLeaderboard() {
 
 function renderRecentAttempts(attempts) {
   const wrap = $id("recentAttemptsWrap");
-  if (!wrap) return;
-  if (!attempts.length) {
-    wrap.innerHTML = `<p class="muted">Hali birorta test yakunlanmagan.</p>`;
+  if (wrap) {
+    if (!attempts.length) {
+      wrap.innerHTML = `<p class="muted">Hali birorta test yakunlanmagan.</p>`;
+    } else {
+      wrap.innerHTML = `
+        <table class="data-table responsive-table">
+          <thead>
+            <tr>
+              <th>Foydalanuvchi</th>
+              <th>Test</th>
+              <th>Natija</th>
+              <th>Vaqt</th>
+              <th>Amallar</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${attempts
+              .map(
+                (a) => `
+              <tr>
+                <td data-label="Foydalanuvchi"><strong>${escapeHtml(a.user_name)}</strong></td>
+                <td data-label="Test">${escapeHtml(a.quiz_title)} <span class="mono muted">#${escapeHtml(a.quiz_code)}</span></td>
+                <td data-label="Natija"><strong>${a.percentage}%</strong> (${a.correct_count}/${a.correct_count + a.wrong_count + a.skipped_count})</td>
+                <td data-label="Vaqt" class="mono">${formatDuration(a.duration_sec)}</td>
+                <td data-label="Amallar">
+                  <button type="button" class="btn btn-danger btn-sm" title="Natijani o'chirish" onclick="deleteAttemptConfirm(${a.id})">🗑</button>
+                </td>
+              </tr>`
+              )
+              .join("")}
+          </tbody>
+        </table>
+      `;
+    }
+  }
+
+  const overviewWrap = $id("overviewAttemptsWrap");
+  if (overviewWrap) {
+    if (!attempts.length) {
+      overviewWrap.innerHTML = `<p class="muted">Hali birorta test yakunlanmagan. Birinchi testni boshlang!</p>`;
+    } else {
+      overviewWrap.innerHTML = `
+        <table class="data-table responsive-table">
+          <thead>
+            <tr>
+              <th>Foydalanuvchi</th>
+              <th>Test</th>
+              <th>Natija</th>
+              <th>Vaqt</th>
+              <th>Holat</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${attempts
+              .slice(0, 5)
+              .map(
+                (a) => `
+              <tr>
+                <td data-label="Foydalanuvchi"><strong>${escapeHtml(a.user_name)}</strong></td>
+                <td data-label="Test">${escapeHtml(a.quiz_title)} <span class="mono muted">#${escapeHtml(a.quiz_code)}</span></td>
+                <td data-label="Natija"><strong>${a.percentage}%</strong> (${a.correct_count}/${a.correct_count + a.wrong_count + a.skipped_count})</td>
+                <td data-label="Vaqt" class="mono">${formatDuration(a.duration_sec)}</td>
+                <td data-label="Holat"><span class="kpi-trend kpi-trend-up">Yakunlangan</span></td>
+              </tr>`
+              )
+              .join("")}
+          </tbody>
+        </table>
+      `;
+    }
+  }
+}
+
+function renderOverviewQuizzes(quizzes) {
+  const grid = $id("overviewQuizzesGrid");
+  if (!grid) return;
+  if (!quizzes.length) {
+    grid.innerHTML = `<p class="muted">Testlar mavjud emas.</p>`;
     return;
   }
-  wrap.innerHTML = `
-    <table class="data-table responsive-table">
-      <thead>
-        <tr>
-          <th>Foydalanuvchi</th>
-          <th>Test</th>
-          <th>Natija</th>
-          <th>Vaqt</th>
-          <th>Amallar</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${attempts
-          .map(
-            (a) => `
-          <tr>
-            <td data-label="Foydalanuvchi"><strong>${escapeHtml(a.user_name)}</strong></td>
-            <td data-label="Test">${escapeHtml(a.quiz_title)} <span class="mono muted">#${escapeHtml(a.quiz_code)}</span></td>
-            <td data-label="Natija"><strong>${a.percentage}%</strong> (${a.correct_count}/${a.correct_count + a.wrong_count + a.skipped_count})</td>
-            <td data-label="Vaqt" class="mono">${formatDuration(a.duration_sec)}</td>
-            <td data-label="Amallar">
-              <button type="button" class="btn btn-danger btn-sm" title="Natijani o'chirish" onclick="deleteAttemptConfirm(${a.id})">🗑</button>
-            </td>
-          </tr>`
-          )
-          .join("")}
-      </tbody>
-    </table>
-  `;
+  grid.innerHTML = quizzes
+    .map(
+      (q) => `
+    <article class="quiz-card glass-card">
+      <div class="row-between mb-2">
+        <span class="zenith-chip">Kod: #${escapeHtml(q.code)}</span>
+        <span class="quiz-diff diff-${q.difficulty || "orta"}">${escapeHtml(q.difficulty || "o'rta")}</span>
+      </div>
+      <h3>${escapeHtml(q.title)}</h3>
+      <p class="muted text-sm">${escapeHtml(q.description || "1 dan oxirigacha ketma-ket test to'plami.")}</p>
+      <div class="divider"></div>
+      <div class="row-between">
+        <span class="text-sm font-medium">❓ ${q.questions_count || 175} ta savol</span>
+        <div class="btn-row">
+          <button type="button" class="btn btn-primary btn-sm" onclick="switchTab('miniapp')">📱 Mini App</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="switchTab('simulator')">💬 Bot</button>
+        </div>
+      </div>
+    </article>`
+    )
+    .join("");
 }
 
 async function deleteAttemptConfirm(attemptId) {
@@ -2073,6 +2147,15 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
+function quickFillAndLogin() {
+  const u = $id("loginUsername");
+  const p = $id("loginPassword");
+  if (u) u.value = "muxandis";
+  if (p) p.value = "muxandis2026";
+  const btn = $id("loginSubmitBtn");
+  if (btn) btn.click();
+}
+
 async function checkSessionAndBoot() {
   loadZenithPrefs();
   try {
@@ -2080,7 +2163,7 @@ async function checkSessionAndBoot() {
     if (me.authenticated) {
       showAppShell(me.username);
       await refreshAll();
-      await simSendText("/start", false);
+      switchTab("dashboard");
       return;
     }
   } catch {

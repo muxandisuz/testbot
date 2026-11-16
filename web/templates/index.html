@@ -16,7 +16,12 @@
   <section id="authOverlay" class="auth-overlay" aria-labelledby="authTitle">
     <div class="auth-card glass-card">
       <div class="auth-head">
-        <div class="brand-logo brand-logo-centered" aria-hidden="true">🔐</div>
+        <div class="brand-logo brand-logo-centered" aria-hidden="true">
+          <svg class="zenith-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
         <span class="zenith-chip">Zenith Admin Security</span>
         <h1 id="authTitle">TestMaster Bot Studio</h1>
         <p class="muted">Interaktiv Telegram Test Tizimi &amp; Boshqaruv Paneli</p>
@@ -31,6 +36,7 @@
             id="loginUsername"
             class="input"
             type="text"
+            value="muxandis"
             placeholder="Loginni kiriting"
             autocomplete="username"
             required
@@ -43,6 +49,7 @@
               id="loginPassword"
               class="input"
               type="password"
+              value="muxandis2026"
               placeholder="Parolni kiriting"
               autocomplete="current-password"
               required
@@ -58,6 +65,9 @@
         </div>
         <button type="submit" class="btn btn-primary w-full" id="loginSubmitBtn">
           🔐 Tizimga kirish
+        </button>
+        <button type="button" class="btn btn-ghost w-full" onclick="quickFillAndLogin()">
+          ⚡ Bir bosishda kirish (muxandis)
         </button>
       </form>
     </div>
@@ -96,25 +106,30 @@
       </div>
 
       <nav class="sidebar-nav" role="tablist" aria-label="Asosiy bo'limlar">
-        <div class="sidebar-group-label">Asosiy Platforma</div>
+        <div class="sidebar-group-label">Asosiy Boshqaruv</div>
         <button
-          id="tab-btn-simulator"
+          id="tab-btn-dashboard"
           type="button"
           role="tab"
           aria-selected="true"
-          aria-controls="tab-simulator"
+          aria-controls="tab-dashboard"
           class="tab-btn active"
-          data-tab="simulator"
-          data-title="Telegram Simulyator"
-          onclick="switchTab('simulator')"
+          data-tab="dashboard"
+          data-title="Boshqaruv Paneli"
+          onclick="switchTab('dashboard')"
         >
           <span class="tab-ico">
             <svg class="zenith-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              <rect width="7" height="9" x="3" y="3" rx="1"/>
+              <rect width="7" height="5" x="14" y="3" rx="1"/>
+              <rect width="7" height="9" x="14" y="12" rx="1"/>
+              <rect width="7" height="5" x="3" y="16" rx="1"/>
             </svg>
           </span>
-          <span class="tab-lbl">Telegram Simulyator</span>
+          <span class="tab-lbl">Boshqaruv Paneli</span>
         </button>
+
+        <div class="sidebar-group-label">Test Rejimlari</div>
         <button
           id="tab-btn-miniapp"
           type="button"
@@ -134,6 +149,24 @@
           </span>
           <span class="tab-lbl">Mini App Rejimi</span>
           <span class="sidebar-badge">Yangi</span>
+        </button>
+        <button
+          id="tab-btn-simulator"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          aria-controls="tab-simulator"
+          class="tab-btn"
+          data-tab="simulator"
+          data-title="Telegram Simulyator"
+          onclick="switchTab('simulator')"
+        >
+          <span class="tab-ico">
+            <svg class="zenith-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+          </span>
+          <span class="tab-lbl">Telegram Simulyator</span>
         </button>
         <button
           id="tab-btn-webquiz"
@@ -161,6 +194,7 @@
           id="tab-btn-admin"
           type="button"
           role="tab"
+          aria-selected="false"
           aria-controls="tab-admin"
           class="tab-btn"
           data-tab="admin"
@@ -290,7 +324,7 @@
           <div class="breadcrumb">
             <span class="muted">TestMaster</span>
             <span class="breadcrumb-separator">/</span>
-            <strong id="activeBreadcrumb">Telegram Simulyator</strong>
+            <strong id="activeBreadcrumb">Boshqaruv Paneli</strong>
           </div>
         </div>
 
@@ -464,10 +498,128 @@
 
         <!-- Main Panels -->
         <main class="studio-main">
+          <!-- TAB 0: Zenith Dashboard Overview (Default Active Tab) -->
+          <section
+            id="tab-dashboard"
+            class="tab-panel active"
+            role="tabpanel"
+            aria-labelledby="tab-btn-dashboard"
+          >
+            <div class="zenith-overview-grid">
+              <!-- Left Column: Recent Activity & Live Attempts -->
+              <div class="overview-main-col">
+                <div class="glass-card">
+                  <div class="card-head row-between">
+                    <div>
+                      <h2>📊 Oxirgi Test Natijalari va Faollik</h2>
+                      <p class="muted">Telegram bot va Mini App orqali yechilgan testlarning real-vaqtdagi natijalari</p>
+                    </div>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="switchTab('leaderboard')">
+                      To'liq reyting →
+                    </button>
+                  </div>
+                  <div id="overviewAttemptsWrap" class="table-wrap"></div>
+                </div>
+
+                <!-- Active Quizzes Showcase -->
+                <div class="glass-card mt-4">
+                  <div class="card-head row-between">
+                    <div>
+                      <h2>📚 Faol Test To'plamlari</h2>
+                      <p class="muted">Tizimda mavjud bo'lgan testlar va savollar soni</p>
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="switchTab('admin')">
+                      ➕ Yangi test yaratish
+                    </button>
+                  </div>
+                  <div id="overviewQuizzesGrid" class="quizzes-grid"></div>
+                </div>
+              </div>
+
+              <!-- Right Column: Zenith System & Quick Actions Card -->
+              <div class="overview-side-col">
+                <div class="glass-card system-status-card">
+                  <div class="card-head">
+                    <h2>🤖 Bot &amp; Tizim Holati</h2>
+                    <p class="muted">Infratuzilma va ulanish parametrlari</p>
+                  </div>
+
+                  <div class="system-metric-list">
+                    <div class="sys-metric-item">
+                      <span class="sys-metric-lbl">Telegram Bot</span>
+                      <strong class="sys-metric-val text-emerald">@ubstest7bot (Faol)</strong>
+                    </div>
+                    <div class="sys-metric-item">
+                      <span class="sys-metric-lbl">Mini App Rejimi</span>
+                      <strong class="sys-metric-val text-accent">Faol (/webapp)</strong>
+                    </div>
+                    <div class="sys-metric-item">
+                      <span class="sys-metric-lbl">Savollar Bazasi</span>
+                      <strong class="sys-metric-val" id="sysQuestionsCount">175 ta</strong>
+                    </div>
+                    <div class="sys-metric-item">
+                      <span class="sys-metric-lbl">Foydalanuvchilar</span>
+                      <strong class="sys-metric-val" id="sysUsersCount">2 ta</strong>
+                    </div>
+                  </div>
+
+                  <div class="divider"></div>
+
+                  <h3 class="subhead mb-2">⚡ Tezkor Amallar</h3>
+                  <div class="quick-action-grid">
+                    <button type="button" class="quick-action-btn" onclick="switchTab('miniapp')">
+                      <svg class="zenith-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                        <line x1="12" y1="18" x2="12.01" y2="18"/>
+                      </svg>
+                      <span>Mini App</span>
+                    </button>
+                    <button type="button" class="quick-action-btn" onclick="switchTab('simulator')">
+                      <svg class="zenith-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                      </svg>
+                      <span>Simulyator</span>
+                    </button>
+                    <button type="button" class="quick-action-btn" onclick="switchTab('admin')">
+                      <svg class="zenith-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 5v14M5 12h14"/>
+                      </svg>
+                      <span>Test Muharriri</span>
+                    </button>
+                    <button type="button" class="quick-action-btn" onclick="switchTab('users')">
+                      <svg class="zenith-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                      </svg>
+                      <span>Chatlar Tarixi</span>
+                    </button>
+                  </div>
+
+                  <div class="divider"></div>
+
+                  <div>
+                    <label class="field-lbl">Mini App WebApp Havolasi</label>
+                    <div class="input-group">
+                      <input
+                        class="input input-sm mono"
+                        type="text"
+                        readonly
+                        value="https://ubs-testbot.up.railway.app/webapp"
+                      />
+                      <button type="button" class="btn btn-ghost btn-sm" onclick="copyMiniAppUrl()">
+                        📋
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
           <!-- TAB 1: Telegram Bot Simulator -->
           <section
             id="tab-simulator"
-            class="tab-panel active"
+            class="tab-panel"
             role="tabpanel"
             aria-labelledby="tab-btn-simulator"
           >
