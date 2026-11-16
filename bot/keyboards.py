@@ -4,25 +4,34 @@ from __future__ import annotations
 
 from typing import Any
 
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+
+from config import get_settings
 
 
 ButtonSpec = dict[str, str]
 KeyboardRows = list[list[ButtonSpec]]
 
 
-def btn(text: str, callback_data: str) -> ButtonSpec:
-    """Create a plain serializable inline button specification."""
-    return {"text": text, "callback_data": callback_data}
+def btn(text: str, callback_data: str, web_app_url: str | None = None) -> ButtonSpec:
+    """Create a plain serializable inline button specification (optionally opening a Telegram Mini App)."""
+    spec: ButtonSpec = {"text": text, "callback_data": callback_data}
+    if web_app_url:
+        spec["web_app_url"] = web_app_url
+    return spec
+
+
+def _to_inline_btn(item: ButtonSpec) -> InlineKeyboardButton:
+    web_app_url = (item.get("web_app_url") or "").strip()
+    if web_app_url.startswith("https://"):
+        return InlineKeyboardButton(text=item["text"], web_app=WebAppInfo(url=web_app_url))
+    return InlineKeyboardButton(text=item["text"], callback_data=item["callback_data"])
 
 
 def to_aiogram_markup(rows: KeyboardRows) -> InlineKeyboardMarkup:
     """Convert button rows into an Aiogram InlineKeyboardMarkup."""
     keyboard = [
-        [
-            InlineKeyboardButton(text=item["text"], callback_data=item["callback_data"])
-            for item in row
-        ]
+        [_to_inline_btn(item) for item in row]
         for row in rows
         if row
     ]
@@ -30,8 +39,10 @@ def to_aiogram_markup(rows: KeyboardRows) -> InlineKeyboardMarkup:
 
 
 def main_menu_keyboard(is_admin: bool = False) -> KeyboardRows:
+    webapp_url = get_settings().webapp_url
     rows: KeyboardRows = [
         [btn("📝 Test ishlash", "c:list")],
+        [btn("📱 Mini App da ishlash", "c:list", web_app_url=webapp_url)],
         [btn("📊 Statistikam", "st:me"), btn("🏆 Reyting", "lb:v:0")],
         [btn("🔑 Kod orqali kirish", "code:p"), btn("ℹ️ Qoidalar", "hp:v")],
     ]

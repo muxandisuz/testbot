@@ -1,22 +1,23 @@
 <!DOCTYPE html>
-<html lang="uz">
+<html lang="uz" data-theme="dark" data-preset="teal" data-density="default" data-layout="sidebar">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="TestMaster Bot Studio — Interaktiv Telegram Test Tizimi va Boshqaruv Paneli" />
-  <meta name="theme-color" content="#070c18" />
-  <title>TestMaster Bot Studio — Telegram Test Platformasi va Boshqaruv Paneli</title>
+  <meta name="description" content="TestMaster Bot Studio — Zenith Admin Panel, Telegram Simulyator va Mini App" />
+  <meta name="theme-color" content="#09090b" />
+  <title>TestMaster Bot Studio — Zenith Admin Dashboard &amp; Mini App</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
-  <!-- Full-Screen Studio Login Gate -->
+  <!-- Full-Screen Studio Login Gate (Zenith / shadcn Card Style) -->
   <section id="authOverlay" class="auth-overlay" aria-labelledby="authTitle">
     <div class="auth-card glass-card">
       <div class="auth-head">
         <div class="brand-logo brand-logo-centered" aria-hidden="true">🔐</div>
+        <span class="zenith-chip">Zenith Admin Security</span>
         <h1 id="authTitle">TestMaster Bot Studio</h1>
         <p class="muted">Interaktiv Telegram Test Tizimi &amp; Boshqaruv Paneli</p>
       </div>
@@ -62,804 +63,1063 @@
     </div>
   </section>
 
-  <!-- Main Application Shell -->
-  <div id="appShell" class="app-shell hidden">
-    <!-- Top Header -->
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-logo" aria-hidden="true">🎯</div>
-        <div class="brand-text">
-          <h1>TestMaster Bot Studio</h1>
-          <p>Interaktiv Telegram Test Tizimi &amp; Boshqaruv Paneli</p>
-        </div>
-      </div>
+  <!-- Zenith Admin Dashboard Shell -->
+  <div id="appShell" class="zenith-layout hidden">
+    <!-- Mobile Sidebar Backdrop -->
+    <div id="sidebarBackdrop" class="sidebar-backdrop hidden" onclick="closeMobileSidebar()"></div>
 
-      <div class="topbar-right">
-        <div id="botStatusBadge" class="status-pill status-sim" role="status">
-          <span class="dot" aria-hidden="true"></span>
-          <span id="botStatusText">Tekshirilmoqda...</span>
-        </div>
-        <div class="status-pill status-user" title="Joriy administrator">
-          <span aria-hidden="true">👤</span>
-          <span id="adminUsernameText">admin</span>
-        </div>
-        <button type="button" class="btn btn-primary btn-sm" onclick="switchTab('settings')">
-          🤖 Botni Ulash
-        </button>
-        <button type="button" class="btn btn-ghost btn-sm" onclick="logoutStudio()">
-          🚪 Chiqish
-        </button>
-      </div>
-    </header>
-
-    <!-- Navigation Tabs -->
-    <nav class="nav-tabs" role="tablist" aria-label="Asosiy bo'limlar">
-      <button
-        id="tab-btn-simulator"
-        type="button"
-        role="tab"
-        aria-selected="true"
-        aria-controls="tab-simulator"
-        class="tab-btn active"
-        data-tab="simulator"
-        onclick="switchTab('simulator')"
-      >
-        💬 Telegram Simulyator
-      </button>
-      <button
-        id="tab-btn-webquiz"
-        type="button"
-        role="tab"
-        aria-selected="false"
-        aria-controls="tab-webquiz"
-        class="tab-btn"
-        data-tab="webquiz"
-        onclick="switchTab('webquiz')"
-      >
-        🖥 Web Test Rejimi
-      </button>
-      <button
-        id="tab-btn-admin"
-        type="button"
-        role="tab"
-        aria-selected="false"
-        aria-controls="tab-admin"
-        class="tab-btn"
-        data-tab="admin"
-        onclick="switchTab('admin')"
-      >
-        📚 Testlar va Savollar
-      </button>
-      <button
-        id="tab-btn-users"
-        type="button"
-        role="tab"
-        aria-selected="false"
-        aria-controls="tab-users"
-        class="tab-btn"
-        data-tab="users"
-        onclick="switchTab('users')"
-      >
-        👥 Foydalanuvchilar
-      </button>
-      <button
-        id="tab-btn-leaderboard"
-        type="button"
-        role="tab"
-        aria-selected="false"
-        aria-controls="tab-leaderboard"
-        class="tab-btn"
-        data-tab="leaderboard"
-        onclick="switchTab('leaderboard')"
-      >
-        🏆 Reyting va Statistika
-      </button>
-      <button
-        id="tab-btn-settings"
-        type="button"
-        role="tab"
-        aria-selected="false"
-        aria-controls="tab-settings"
-        class="tab-btn"
-        data-tab="settings"
-        onclick="switchTab('settings')"
-      >
-        ⚙️ Bot Sozlamalari
-      </button>
-    </nav>
-
-    <!-- KPI Strip -->
-    <section class="kpi-grid" id="kpiGrid" aria-label="Asosiy ko'rsatkichlar">
-      <article class="kpi-card">
-        <span class="kpi-icon" aria-hidden="true">📚</span>
-        <div>
-          <div class="kpi-val" id="kpiCategories">0</div>
-          <div class="kpi-lbl">Fanlar</div>
-        </div>
-      </article>
-      <article class="kpi-card">
-        <span class="kpi-icon" aria-hidden="true">📝</span>
-        <div>
-          <div class="kpi-val" id="kpiQuizzes">0</div>
-          <div class="kpi-lbl">Testlar</div>
-        </div>
-      </article>
-      <article class="kpi-card">
-        <span class="kpi-icon" aria-hidden="true">❓</span>
-        <div>
-          <div class="kpi-val" id="kpiQuestions">0</div>
-          <div class="kpi-lbl">Savollar</div>
-        </div>
-      </article>
-      <article class="kpi-card">
-        <span class="kpi-icon" aria-hidden="true">👥</span>
-        <div>
-          <div class="kpi-val" id="kpiUsers">0</div>
-          <div class="kpi-lbl">Foydalanuvchilar</div>
-        </div>
-      </article>
-      <article class="kpi-card kpi-card-wide">
-        <span class="kpi-icon" aria-hidden="true">🎯</span>
-        <div>
-          <div class="kpi-val" id="kpiAvg">0%</div>
-          <div class="kpi-lbl">O'rtacha natija</div>
-        </div>
-      </article>
-    </section>
-
-    <!-- Main Content Area -->
-    <main class="studio-main">
-      <!-- TAB 1: Telegram Bot Simulator -->
-      <section
-        id="tab-simulator"
-        class="tab-panel active"
-        role="tabpanel"
-        aria-labelledby="tab-btn-simulator"
-      >
-        <div class="sim-layout">
-          <!-- Phone Mockup -->
-          <div class="phone-frame">
-            <div class="phone-notch" aria-hidden="true"></div>
-            <div class="tg-header">
-              <div class="tg-avatar" aria-hidden="true">🤖</div>
-              <div class="tg-title-wrap">
-                <div class="tg-bot-name" id="simBotTitle">TestMaster Bot</div>
-                <div class="tg-bot-sub">bot · jonli simulyator</div>
-              </div>
-              <button
-                type="button"
-                class="tg-reset-btn"
-                title="Qayta boshlash (/start)"
-                onclick="simSendText('/start')"
-              >
-                ↻ /start
-              </button>
-            </div>
-
-            <div class="tg-chat-area" id="tgChatArea" aria-live="polite">
-              <div id="tgToast" class="tg-toast hidden" role="status"></div>
-              <div id="tgMessages" class="tg-messages"></div>
-            </div>
-
-            <div class="tg-quick-chips" aria-label="Tezkor buyruqlar">
-              <button type="button" onclick="simSendText('/start')">/start</button>
-              <button type="button" onclick="simSendCallback('c:list')">📝 Test ishlash</button>
-              <button type="button" onclick="simSendText('2000')">🦉 2000</button>
-              <button type="button" onclick="simSendText('/stats')">📊 /stats</button>
-              <button type="button" onclick="simSendText('/top')">🏆 /top</button>
-              <button type="button" onclick="simSendText('/admin')">⚙️ /admin</button>
-            </div>
-
-            <form class="tg-input-bar" onsubmit="simSubmitForm(event)">
-              <input
-                id="simTextInput"
-                type="text"
-                placeholder="Xabar yoki test kodini yozing (masalan: 2000)..."
-                aria-label="Simulyator xabar maydoni"
-                autocomplete="off"
-              />
-              <button type="submit" aria-label="Yuborish">➤</button>
-            </form>
+    <!-- Left Vertical Navigation Sidebar -->
+    <aside id="zenithSidebar" class="zenith-sidebar" aria-label="Boshqaruv paneli menyusi">
+      <div class="sidebar-header">
+        <div class="brand">
+          <div class="brand-logo" aria-hidden="true">🎯</div>
+          <div class="brand-text">
+            <h1>TestMaster</h1>
+            <p>Zenith Bot Studio</p>
           </div>
+        </div>
+        <button
+          type="button"
+          class="btn btn-ghost btn-sm sidebar-close-mobile"
+          onclick="closeMobileSidebar()"
+          aria-label="Menyuni yopish"
+        >✕</button>
+      </div>
 
-          <!-- Simulator Side Guide -->
-          <aside class="sim-sidebar">
-            <div class="glass-card">
-              <div class="card-head">
-                <h2>✨ Bot imkoniyatlarini shu yerda sinab ko'ring</h2>
+      <nav class="sidebar-nav" role="tablist" aria-label="Asosiy bo'limlar">
+        <div class="sidebar-group-label">Platforma &amp; Rejimlar</div>
+        <button
+          id="tab-btn-simulator"
+          type="button"
+          role="tab"
+          aria-selected="true"
+          aria-controls="tab-simulator"
+          class="tab-btn active"
+          data-tab="simulator"
+          data-title="Telegram Simulyator"
+          onclick="switchTab('simulator')"
+        >
+          <span class="tab-ico">💬</span>
+          <span class="tab-lbl">Telegram Simulyator</span>
+        </button>
+        <button
+          id="tab-btn-miniapp"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          aria-controls="tab-miniapp"
+          class="tab-btn"
+          data-tab="miniapp"
+          data-title="Telegram Mini App Rejimi"
+          onclick="switchTab('miniapp')"
+        >
+          <span class="tab-ico">📱</span>
+          <span class="tab-lbl">Mini App Rejimi</span>
+          <span class="sidebar-badge">Yangi</span>
+        </button>
+        <button
+          id="tab-btn-webquiz"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          aria-controls="tab-webquiz"
+          class="tab-btn"
+          data-tab="webquiz"
+          data-title="Web Test Rejimi"
+          onclick="switchTab('webquiz')"
+        >
+          <span class="tab-ico">🖥</span>
+          <span class="tab-lbl">Web Test Rejimi</span>
+        </button>
+
+        <div class="sidebar-group-label">Boshqaruv &amp; CRM</div>
+        <button
+          id="tab-btn-admin"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          aria-controls="tab-admin"
+          class="tab-btn"
+          data-tab="admin"
+          data-title="Testlar va Savollar"
+          onclick="switchTab('admin')"
+        >
+          <span class="tab-ico">📚</span>
+          <span class="tab-lbl">Testlar va Savollar</span>
+        </button>
+        <button
+          id="tab-btn-users"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          aria-controls="tab-users"
+          class="tab-btn"
+          data-tab="users"
+          data-title="Foydalanuvchilar &amp; Chatlar"
+          onclick="switchTab('users')"
+        >
+          <span class="tab-ico">👥</span>
+          <span class="tab-lbl">Foydalanuvchilar</span>
+        </button>
+        <button
+          id="tab-btn-leaderboard"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          aria-controls="tab-leaderboard"
+          class="tab-btn"
+          data-tab="leaderboard"
+          data-title="Reyting va Statistika"
+          onclick="switchTab('leaderboard')"
+        >
+          <span class="tab-ico">🏆</span>
+          <span class="tab-lbl">Reyting va Statistika</span>
+        </button>
+
+        <div class="sidebar-group-label">Tizim</div>
+        <button
+          id="tab-btn-settings"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          aria-controls="tab-settings"
+          class="tab-btn"
+          data-tab="settings"
+          data-title="Bot va Tizim Sozlamalari"
+          onclick="switchTab('settings')"
+        >
+          <span class="tab-ico">⚙️</span>
+          <span class="tab-lbl">Bot Sozlamalari</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-user-card">
+          <div class="sidebar-user-avatar">👤</div>
+          <div class="sidebar-user-info">
+            <strong id="adminUsernameText">admin</strong>
+            <span>Administrator</span>
+          </div>
+          <button
+            type="button"
+            class="btn btn-ghost btn-sm"
+            title="Tizimdan chiqish"
+            onclick="logoutStudio()"
+          >🚪</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Right Workspace -->
+    <div class="zenith-workspace">
+      <!-- Sticky Top Header -->
+      <header class="zenith-header">
+        <div class="header-left">
+          <button
+            type="button"
+            class="btn btn-ghost btn-sm"
+            onclick="toggleSidebar()"
+            aria-label="Menyuni yig'ish yoki ochish"
+            title="Menyu"
+          >☰</button>
+          <div class="breadcrumb">
+            <span class="muted">Dashboard</span>
+            <span class="muted">/</span>
+            <strong id="activeBreadcrumb">Telegram Simulyator</strong>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <div id="botStatusBadge" class="status-pill status-sim" role="status">
+            <span class="dot" aria-hidden="true"></span>
+            <span id="botStatusText">Tekshirilmoqda...</span>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="switchTab('miniapp')" title="Mini App Rejimi">
+            📱 Mini App
+          </button>
+          <button
+            type="button"
+            class="btn btn-ghost btn-sm"
+            id="themeModeBtn"
+            onclick="toggleThemeMode()"
+            title="Yorug' / Qorong'i rejim"
+          >🌙</button>
+          <button
+            type="button"
+            class="btn btn-ghost btn-sm"
+            onclick="toggleThemeCustomizer()"
+            title="Zenith Mavzu Sozlagichi"
+          >🎨 Mavzu</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="switchTab('settings')">
+            🤖 Botni Ulash
+          </button>
+        </div>
+      </header>
+
+      <!-- Workspace Content Container -->
+      <div class="zenith-content" id="zenithContent">
+        <!-- KPI Strip -->
+        <section class="kpi-grid" id="kpiGrid" aria-label="Asosiy ko'rsatkichlar">
+          <article class="kpi-card">
+            <div class="kpi-head">
+              <span class="kpi-lbl">Fanlar</span>
+              <span class="kpi-icon" aria-hidden="true">📚</span>
+            </div>
+            <div class="kpi-val" id="kpiCategories">0</div>
+            <div class="kpi-sub">Faol yo'nalishlar</div>
+          </article>
+          <article class="kpi-card">
+            <div class="kpi-head">
+              <span class="kpi-lbl">Testlar</span>
+              <span class="kpi-icon" aria-hidden="true">📝</span>
+            </div>
+            <div class="kpi-val" id="kpiQuizzes">0</div>
+            <div class="kpi-sub">Tayyor test to'plamlari</div>
+          </article>
+          <article class="kpi-card">
+            <div class="kpi-head">
+              <span class="kpi-lbl">Savollar</span>
+              <span class="kpi-icon" aria-hidden="true">❓</span>
+            </div>
+            <div class="kpi-val" id="kpiQuestions">0</div>
+            <div class="kpi-sub">Bazadagi jami savollar</div>
+          </article>
+          <article class="kpi-card">
+            <div class="kpi-head">
+              <span class="kpi-lbl">Foydalanuvchilar</span>
+              <span class="kpi-icon" aria-hidden="true">👥</span>
+            </div>
+            <div class="kpi-val" id="kpiUsers">0</div>
+            <div class="kpi-sub">Telegram ishtirokchilari</div>
+          </article>
+          <article class="kpi-card kpi-card-wide">
+            <div class="kpi-head">
+              <span class="kpi-lbl">O'rtacha natija</span>
+              <span class="kpi-icon" aria-hidden="true">🎯</span>
+            </div>
+            <div class="kpi-val" id="kpiAvg">0%</div>
+            <div class="kpi-sub">Yakunlangan testlar aniqligi</div>
+          </article>
+        </section>
+
+        <!-- Main Panels -->
+        <main class="studio-main">
+          <!-- TAB 1: Telegram Bot Simulator -->
+          <section
+            id="tab-simulator"
+            class="tab-panel active"
+            role="tabpanel"
+            aria-labelledby="tab-btn-simulator"
+          >
+            <div class="sim-layout">
+              <!-- Phone Mockup -->
+              <div class="phone-frame">
+                <div class="phone-notch" aria-hidden="true"></div>
+                <div class="tg-header">
+                  <div class="tg-avatar" aria-hidden="true">🤖</div>
+                  <div class="tg-title-wrap">
+                    <div class="tg-bot-name" id="simBotTitle">TestMaster Bot</div>
+                    <div class="tg-bot-sub">bot · jonli simulyator</div>
+                  </div>
+                  <button
+                    type="button"
+                    class="tg-reset-btn"
+                    title="Qayta boshlash (/start)"
+                    onclick="simSendText('/start')"
+                  >
+                    ↻ /start
+                  </button>
+                </div>
+
+                <div class="tg-chat-area" id="tgChatArea" aria-live="polite">
+                  <div id="tgToast" class="tg-toast hidden" role="status"></div>
+                  <div id="tgMessages" class="tg-messages"></div>
+                </div>
+
+                <div class="tg-quick-chips" aria-label="Tezkor buyruqlar">
+                  <button type="button" onclick="simSendText('/start')">/start</button>
+                  <button type="button" onclick="simSendCallback('c:list')">📝 Test ishlash</button>
+                  <button type="button" onclick="switchTab('miniapp')">📱 Mini App</button>
+                  <button type="button" onclick="simSendText('2000')">🦉 2000</button>
+                  <button type="button" onclick="simSendText('/stats')">📊 /stats</button>
+                  <button type="button" onclick="simSendText('/top')">🏆 /top</button>
+                  <button type="button" onclick="simSendText('/admin')">⚙️ /admin</button>
+                </div>
+
+                <form class="tg-input-bar" onsubmit="simSubmitForm(event)">
+                  <input
+                    id="simTextInput"
+                    type="text"
+                    placeholder="Xabar yoki test kodini yozing (masalan: 2000)..."
+                    aria-label="Simulyator xabar maydoni"
+                    autocomplete="off"
+                  />
+                  <button type="submit" aria-label="Yuborish">➤</button>
+                </form>
               </div>
-              <p class="muted">
-                Chap tomondagi Telegram oynasi haqiqiy bot kabi ishlaydi: barcha tugmalar, progress-barlar,
-                <b>1-savoldan 175-savolgacha</b> ketma-ket ishlash, har bir savolda darhol to'g'ri/noto'g'ri natija va istalgan savolda chiqib yakunlash imkoniyati mavjud.
-              </p>
-              <div class="feature-list">
-                <div class="feat-item">
-                  <span aria-hidden="true">▶️</span>
-                  <div>
-                    <strong>1 dan oxirigacha ketma-ket test</strong>
-                    <p><b>📝 Test ishlash</b> tugmasini bosing, test nomini (<b>🦉 Falsafa</b>) tanlang va 1-savoldan 175-savolgacha ishlang.</p>
+
+              <!-- Simulator Side Guide -->
+              <aside class="sim-sidebar">
+                <div class="glass-card">
+                  <div class="card-head">
+                    <h2>✨ Bot va Mini App imkoniyatlarini sinab ko'ring</h2>
+                  </div>
+                  <p class="muted">
+                    Chap tomondagi Telegram oynasi haqiqiy bot kabi ishlaydi: barcha tugmalar, progress-barlar,
+                    <b>1-savoldan 175-savolgacha</b> ketma-ket ishlash, har bir savolda darhol to'g'ri/noto'g'ri natija va istalgan savolda chiqib yakunlash imkoniyati mavjud.
+                  </p>
+                  <div class="feature-list">
+                    <div class="feat-item">
+                      <span aria-hidden="true">▶️</span>
+                      <div>
+                        <strong>1 dan oxirigacha ketma-ket test</strong>
+                        <p><b>📝 Test ishlash</b> tugmasini bosing, test nomini (<b>🦉 Falsafa</b>) tanlang va 1-savoldan 175-savolgacha ishlang.</p>
+                      </div>
+                    </div>
+                    <div class="feat-item">
+                      <span aria-hidden="true">📱</span>
+                      <div>
+                        <strong>Telegram Mini App (WebApp)</strong>
+                        <p>Foydalanuvchilar bot ichida <b>📱 Mini App da ishlash</b> tugmasini bosib, zamonaviy ilova oynasida test yechishlari mumkin.</p>
+                      </div>
+                    </div>
+                    <div class="feat-item">
+                      <span aria-hidden="true">✅</span>
+                      <div>
+                        <strong>Darhol to'g'ri / noto'g'ri ko'rsatish</strong>
+                        <p>Har bir variantni tanlaganingizda o'sha zahoti to'g'ri yoki xato ekanligi ko'rinadi.</p>
+                      </div>
+                    </div>
+                    <div class="feat-item">
+                      <span aria-hidden="true">🚪</span>
+                      <div>
+                        <strong>Istalgan savolda chiqish va yakunlash</strong>
+                        <p>Xohlagan savolga kelganda testdan chiqib, shu paytgacha ishlagan natijangizni ko'rishingiz mumkin.</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div class="feat-item">
-                  <span aria-hidden="true">✅</span>
-                  <div>
-                    <strong>Darhol to'g'ri / noto'g'ri ko'rsatish</strong>
-                    <p>Har bir variantni tanlaganingizda o'sha zahoti to'g'ri yoki xato ekanligi ko'rinadi.</p>
+
+                <div class="glass-card">
+                  <div class="card-head">
+                    <h3>🔑 Mavjud test kodlari (tezkor sinash)</h3>
+                  </div>
+                  <div id="simQuizCodes" class="code-chips-grid"></div>
+                </div>
+
+                <div class="glass-card">
+                  <div class="card-head">
+                    <h3>👤 Simulyator foydalanuvchisi</h3>
+                  </div>
+                  <div class="form-row-2">
+                    <div>
+                      <label class="field-lbl" for="simUserName">Ismingiz</label>
+                      <input id="simUserName" class="input" type="text" value="Mehmon Foydalanuvchi" />
+                    </div>
+                    <div>
+                      <label class="field-lbl" for="simUserRole">Rol</label>
+                      <select id="simUserRole" class="input">
+                        <option value="true" selected>Admin (barcha menyular)</option>
+                        <option value="false">Oddiy foydalanuvchi</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
-                <div class="feat-item">
-                  <span aria-hidden="true">🚪</span>
-                  <div>
-                    <strong>Istalgan savolda chiqish va yakunlash</strong>
-                    <p>Xohlagan savolga kelganda testdan chiqib, shu paytgacha ishlagan natijangizni ko'rishingiz mumkin.</p>
+              </aside>
+            </div>
+          </section>
+
+          <!-- TAB 1.5: Telegram Mini App (WebApp) Mode -->
+          <section
+            id="tab-miniapp"
+            class="tab-panel"
+            role="tabpanel"
+            aria-labelledby="tab-btn-miniapp"
+          >
+            <div class="sim-layout">
+              <!-- Live Embedded Telegram Mini App Frame -->
+              <div class="phone-frame miniapp-frame-wrap">
+                <div class="phone-notch" aria-hidden="true"></div>
+                <div class="tg-header">
+                  <div class="tg-avatar" aria-hidden="true">📱</div>
+                  <div class="tg-title-wrap">
+                    <div class="tg-bot-name">TestMaster Mini App</div>
+                    <div class="tg-bot-sub">Telegram WebApp · Jonli rejim</div>
+                  </div>
+                  <button
+                    type="button"
+                    class="tg-reset-btn"
+                    onclick="reloadMiniAppFrame()"
+                    title="Mini App ni yangilash"
+                  >↻ Yangilash</button>
+                </div>
+                <iframe
+                  id="miniAppIframe"
+                  src="/webapp"
+                  title="Telegram Mini App Preview"
+                  class="miniapp-iframe"
+                ></iframe>
+              </div>
+
+              <!-- Mini App Configuration & Guide -->
+              <aside class="sim-sidebar">
+                <div class="glass-card">
+                  <div class="card-head row-between">
+                    <div>
+                      <h2>📱 Telegram Mini App (WebApp) Rejimi</h2>
+                      <p class="muted">Telegram bot ichida to'liq ekranli zamonaviy web-ilova sifatida ochiladigan maxsus rejim.</p>
+                    </div>
+                    <a href="/webapp" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">
+                      ↗️ Alohida oynada ochish
+                    </a>
+                  </div>
+
+                  <div class="stack-form mt-3">
+                    <div>
+                      <label class="field-lbl" for="miniAppUrlField">Mini App (WebApp) Manzil URL</label>
+                      <div class="input-group">
+                        <input
+                          id="miniAppUrlField"
+                          class="input mono"
+                          type="text"
+                          readonly
+                          value="https://ubs-testbot.up.railway.app/webapp"
+                        />
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="copyMiniAppUrl()">
+                          📋 Nusxalash
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="divider"></div>
+                  <h3>✨ Mini App afzalliklari</h3>
+                  <div class="feature-list">
+                    <div class="feat-item">
+                      <span>⚡</span>
+                      <div>
+                        <strong>Telegram SDK integratsiyasi</strong>
+                        <p><code>telegram-web-app.js</code> orqali foydalanuvchi ismi, ID raqami va Haptic (vibratsiya) avtomatik ishlaydi.</p>
+                      </div>
+                    </div>
+                    <div class="feat-item">
+                      <span>🤖</span>
+                      <div>
+                        <strong>Avtomatik Menyu Tugmasi</strong>
+                        <p>Bot ishga tushganda Telegram chatning pastki chap burchagiga avtomatik <b>📱 Mini App</b> tugmasini o'rnatadi.</p>
+                      </div>
+                    </div>
+                    <div class="feat-item">
+                      <span>💬</span>
+                      <div>
+                        <strong>Chat tarixi bilan sinxron</strong>
+                        <p>Mini App ichida boshlangan va yakunlangan testlar ham foydalanuvchining <b>💬 Chatlar tarixi</b> bo'limiga yoziladi.</p>
+                      </div>
+                    </div>
+                    <div class="feat-item">
+                      <span>🔓</span>
+                      <div>
+                        <strong>Oddiy foydalanuvchilar uchun ochiq</strong>
+                        <p>Admin parolisiz to'g'ridan-to'g'ri Telegram foydalanuvchilari kirib test yechishi va reytingni ko'rishi mumkin.</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div class="feat-item">
-                  <span aria-hidden="true">🔑</span>
+              </aside>
+            </div>
+          </section>
+
+          <!-- TAB 2: Web Quiz Player -->
+          <section
+            id="tab-webquiz"
+            class="tab-panel"
+            role="tabpanel"
+            aria-labelledby="tab-btn-webquiz"
+          >
+            <div id="webQuizLobby">
+              <div class="glass-card mb-4">
+                <div class="card-head row-between">
                   <div>
-                    <strong>Test kodi orqali kirish</strong>
-                    <p>Chatga <code>2000</code> kodini yuborib ham to'liq Falsafa testini ochishingiz mumkin.</p>
+                    <h2>🖥 Brauzerda Test Ishlash</h2>
+                    <p class="muted">Fan yoki test kodini tanlab, zamonaviy Web interfeysda test ishlang (klaviatura A–D va ⬅️/➡️ tugmalari ham ishlaydi).</p>
                   </div>
+                  <div class="code-launch">
+                    <input
+                      id="webCodeInput"
+                      class="input"
+                      type="text"
+                      placeholder="Kod (masalan: 2000)"
+                      aria-label="Test kodi"
+                    />
+                    <button type="button" class="btn btn-primary" onclick="webStartByCode()">Kod bilan ochish</button>
+                  </div>
+                </div>
+                <div id="webCategoryFilter" class="filter-pills"></div>
+              </div>
+
+              <div id="webQuizzesGrid" class="quizzes-grid"></div>
+            </div>
+
+            <div id="webQuizRunner" class="hidden"></div>
+          </section>
+
+          <!-- TAB 3: Admin Panel (Categories, Quizzes, Questions) -->
+          <section
+            id="tab-admin"
+            class="tab-panel"
+            role="tabpanel"
+            aria-labelledby="tab-btn-admin"
+          >
+            <div class="admin-grid">
+              <!-- Left column: Create Category & Create Quiz -->
+              <div class="admin-left">
+                <div class="glass-card">
+                  <div class="card-head">
+                    <h3>➕ Yangi Fan Qo'shish</h3>
+                  </div>
+                  <form onsubmit="adminCreateCategory(event)" class="stack-form">
+                    <div class="form-row-icon">
+                      <div>
+                        <label class="field-lbl" for="catIconInput">Ikonka</label>
+                        <input id="catIconInput" class="input" type="text" value="🧬" maxlength="8" required />
+                      </div>
+                      <div>
+                        <label class="field-lbl" for="catNameInput">Fan nomi</label>
+                        <input id="catNameInput" class="input" type="text" placeholder="Masalan: Biologiya" required />
+                      </div>
+                    </div>
+                    <div>
+                      <label class="field-lbl" for="catDescInput">Qisqa tavsif</label>
+                      <input id="catDescInput" class="input" type="text" placeholder="Fan haqida qisqacha..." />
+                    </div>
+                    <button type="submit" class="btn btn-primary w-full">Fan qo'shish</button>
+                  </form>
+
+                  <div class="divider"></div>
+                  <h4 class="subhead">Mavjud fanlar</h4>
+                  <div id="adminCategoriesList" class="mini-list"></div>
+                </div>
+
+                <div class="glass-card">
+                  <div class="card-head">
+                    <h3>📝 Yangi Test Yaratish</h3>
+                  </div>
+                  <form onsubmit="adminCreateQuiz(event)" class="stack-form">
+                    <div>
+                      <label class="field-lbl" for="quizCatSelect">Fan</label>
+                      <select id="quizCatSelect" class="input" required></select>
+                    </div>
+                    <div>
+                      <label class="field-lbl" for="quizTitleInput">Test nomi</label>
+                      <input id="quizTitleInput" class="input" type="text" placeholder="Masalan: Genetika asoslari" required />
+                    </div>
+                    <div class="form-row-3">
+                      <div>
+                        <label class="field-lbl" for="quizCodeInput">Kod (ixtiyoriy)</label>
+                        <input id="quizCodeInput" class="input mono" type="text" placeholder="Avto" maxlength="10" />
+                      </div>
+                      <div>
+                        <label class="field-lbl" for="quizDiffSelect">Qiyinlik</label>
+                        <select id="quizDiffSelect" class="input">
+                          <option value="oson">🟢 Oson</option>
+                          <option value="orta" selected>🟡 O'rta</option>
+                          <option value="qiyin">🔴 Qiyin</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label class="field-lbl" for="quizTimeInput">Vaqt (daq)</label>
+                        <input id="quizTimeInput" class="input" type="number" value="5" min="1" max="120" />
+                      </div>
+                    </div>
+                    <div>
+                      <label class="field-lbl" for="quizDescInput">Tavsif</label>
+                      <input id="quizDescInput" class="input" type="text" placeholder="Test haqida ma'lumot..." />
+                    </div>
+                    <button type="submit" class="btn btn-primary w-full">Test yaratish</button>
+                  </form>
+                </div>
+              </div>
+
+              <!-- Right column: Quizzes & Question Editor -->
+              <div class="admin-right">
+                <div class="glass-card">
+                  <div class="card-head row-between">
+                    <h3>📚 Testlar va Savollar Muharriri</h3>
+                    <span class="muted text-sm">Savollarni ko'rish va qo'shish uchun testni tanlang</span>
+                  </div>
+                  <div id="adminQuizzesList" class="quiz-admin-list"></div>
+                </div>
+
+                <div id="adminQuestionEditor" class="glass-card hidden">
+                  <div class="card-head row-between">
+                    <div>
+                      <h3 id="editorQuizTitle">Savollar</h3>
+                      <p id="editorQuizMeta" class="muted text-sm"></p>
+                    </div>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="closeQuestionEditor()">✕ Yopish</button>
+                  </div>
+
+                  <div class="editor-tabs">
+                    <button type="button" class="pill-btn active" onclick="toggleEditorMode('single', this)">
+                      ➕ Bitta savol qo'shish
+                    </button>
+                    <button type="button" class="pill-btn" onclick="toggleEditorMode('bulk', this)">
+                      📥 Ko'plab savol import (matn)
+                    </button>
+                  </div>
+
+                  <!-- Single Question Form -->
+                  <form id="singleQuestionForm" onsubmit="adminCreateQuestion(event)" class="stack-form">
+                    <div>
+                      <label class="field-lbl" for="qTextInput">Savol matni</label>
+                      <textarea id="qTextInput" class="input" rows="2" placeholder="Savolni kiriting..." required></textarea>
+                    </div>
+                    <div class="form-row-2">
+                      <div>
+                        <label class="field-lbl" for="qOptA">A varianti</label>
+                        <input id="qOptA" class="input" type="text" required />
+                      </div>
+                      <div>
+                        <label class="field-lbl" for="qOptB">B varianti</label>
+                        <input id="qOptB" class="input" type="text" required />
+                      </div>
+                      <div>
+                        <label class="field-lbl" for="qOptC">C varianti</label>
+                        <input id="qOptC" class="input" type="text" required />
+                      </div>
+                      <div>
+                        <label class="field-lbl" for="qOptD">D varianti</label>
+                        <input id="qOptD" class="input" type="text" required />
+                      </div>
+                    </div>
+                    <div class="form-row-2">
+                      <div>
+                        <label class="field-lbl" for="qCorrectSelect">To'g'ri javob</label>
+                        <select id="qCorrectSelect" class="input">
+                          <option value="A">A</option>
+                          <option value="B">B</option>
+                          <option value="C">C</option>
+                          <option value="D">D</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label class="field-lbl" for="qPointsInput">Ball</label>
+                        <input id="qPointsInput" class="input" type="number" value="10" min="1" max="100" />
+                      </div>
+                    </div>
+                    <div>
+                      <label class="field-lbl" for="qExplanationInput">Izoh (yechim tushuntirishi)</label>
+                      <input id="qExplanationInput" class="input" type="text" placeholder="Nima uchun bu javob to'g'ri?" />
+                    </div>
+                    <button type="submit" class="btn btn-primary">💾 Savolni saqlash</button>
+                  </form>
+
+                  <!-- Bulk Import Form -->
+                  <form id="bulkQuestionForm" onsubmit="adminBulkQuestions(event)" class="stack-form hidden">
+                    <div>
+                      <label class="field-lbl" for="bulkRawInput">
+                        Format 1: <code>Savol | A | B | C | D | To'g'ri | Izoh</code> — yoki Format 2: <code># Savol</code> va <code>+ A.</code> bloklari
+                      </label>
+                      <textarea
+                        id="bulkRawInput"
+                        class="input mono"
+                        rows="5"
+                        placeholder="2 + 2 nechaga teng? | 3 | 4 | 5 | 6 | B | 2 ga 2 ni qo'shsak 4 bo'ladi.&#10;&#10;yoki:&#10;# Savol matni?&#10;+ A. To'g'ri javob&#10;B. Variant B&#10;C. Variant C&#10;D. Variant D"
+                        required
+                      ></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">📥 Hammasini import qilish</button>
+                  </form>
+
+                  <div class="divider"></div>
+                  <div class="row-between mb-3">
+                    <h4 class="subhead m-0">Testdagi savollar (<span id="editorQuestionsCount">0</span> ta)</h4>
+                    <input
+                      id="editorQuestionSearch"
+                      class="input input-sm question-search-input"
+                      type="search"
+                      placeholder="Savol matni bo'yicha qidirish..."
+                      oninput="renderEditorQuestionsList()"
+                    />
+                  </div>
+                  <div id="editorQuestionsList" class="questions-list questions-scroll"></div>
                 </div>
               </div>
             </div>
+          </section>
 
-            <div class="glass-card">
-              <div class="card-head">
-                <h3>🔑 Mavjud test kodlari (tezkor sinash)</h3>
-              </div>
-              <div id="simQuizCodes" class="code-chips-grid"></div>
-            </div>
-
-            <div class="glass-card">
-              <div class="card-head">
-                <h3>👤 Simulyator foydalanuvchisi</h3>
-              </div>
-              <div class="form-row-2">
-                <div>
-                  <label class="field-lbl" for="simUserName">Ismingiz</label>
-                  <input id="simUserName" class="input" type="text" value="Mehmon Foydalanuvchi" />
+          <!-- TAB 4: User Management & Broadcast -->
+          <section
+            id="tab-users"
+            class="tab-panel"
+            role="tabpanel"
+            aria-labelledby="tab-btn-users"
+          >
+            <div class="users-layout">
+              <div class="glass-card">
+                <div class="card-head row-between">
+                  <div>
+                    <h2>👥 Foydalanuvchilarni Boshqarish</h2>
+                    <p class="muted">Foydalanuvchi ustiga bosing yoki 💬 tugmasini tanlab profil va chatlar tarixini ko'ring</p>
+                  </div>
+                  <button type="button" class="btn btn-primary btn-sm" onclick="openCreateUserModal()">
+                    ➕ Yangi foydalanuvchi
+                  </button>
                 </div>
-                <div>
-                  <label class="field-lbl" for="simUserRole">Rol</label>
-                  <select id="simUserRole" class="input">
-                    <option value="true" selected>Admin (barcha menyular)</option>
-                    <option value="false">Oddiy foydalanuvchi</option>
+
+                <div class="users-toolbar">
+                  <input
+                    id="userSearchInput"
+                    class="input"
+                    type="search"
+                    placeholder="Ism, @username yoki Telegram ID bo'yicha qidirish..."
+                    aria-label="Foydalanuvchini qidirish"
+                    oninput="renderUsersTable()"
+                  />
+                  <select
+                    id="userRoleFilter"
+                    class="input input-sm"
+                    aria-label="Rol bo'yicha filtrlash"
+                    onchange="renderUsersTable()"
+                  >
+                    <option value="all">Barchasi</option>
+                    <option value="admin">🛡 Faqat Adminlar</option>
+                    <option value="user">👤 Oddiy foydalanuvchilar</option>
                   </select>
                 </div>
-              </div>
-            </div>
-          </aside>
-        </div>
-      </section>
 
-      <!-- TAB 2: Web Quiz Player -->
-      <section
-        id="tab-webquiz"
-        class="tab-panel"
-        role="tabpanel"
-        aria-labelledby="tab-btn-webquiz"
-      >
-        <div id="webQuizLobby">
-          <div class="glass-card mb-4">
-            <div class="card-head row-between">
-              <div>
-                <h2>🖥 Brauzerda Test Ishlash</h2>
-                <p class="muted">Fan yoki test kodini tanlab, zamonaviy Web interfeysda test ishlang (klaviatura A–D va ⬅️/➡️ tugmalari ham ishlaydi).</p>
+                <div id="usersTableWrap" class="table-wrap"></div>
               </div>
-              <div class="code-launch">
-                <input
-                  id="webCodeInput"
-                  class="input"
-                  type="text"
-                  placeholder="Kod (masalan: 2000)"
-                  aria-label="Test kodi"
-                />
-                <button type="button" class="btn btn-primary" onclick="webStartByCode()">Kod bilan ochish</button>
-              </div>
-            </div>
-            <div id="webCategoryFilter" class="filter-pills"></div>
-          </div>
 
-          <div id="webQuizzesGrid" class="quizzes-grid"></div>
-        </div>
-
-        <div id="webQuizRunner" class="hidden"></div>
-      </section>
-
-      <!-- TAB 3: Admin Panel (Categories, Quizzes, Questions) -->
-      <section
-        id="tab-admin"
-        class="tab-panel"
-        role="tabpanel"
-        aria-labelledby="tab-btn-admin"
-      >
-        <div class="admin-grid">
-          <!-- Left column: Create Category & Create Quiz -->
-          <div class="admin-left">
-            <div class="glass-card">
-              <div class="card-head">
-                <h3>➕ Yangi Fan Qo'shish</h3>
-              </div>
-              <form onsubmit="adminCreateCategory(event)" class="stack-form">
-                <div class="form-row-icon">
-                  <div>
-                    <label class="field-lbl" for="catIconInput">Ikonka</label>
-                    <input id="catIconInput" class="input" type="text" value="🧬" maxlength="8" required />
+              <!-- Selected User Profile & Chat History Section -->
+              <div id="userDetailPanel" class="glass-card user-detail-card hidden">
+                <div class="card-head row-between">
+                  <div class="user-profile-head">
+                    <div class="user-avatar-lg" id="userDetailAvatar" aria-hidden="true">👤</div>
+                    <div>
+                      <h3 id="userDetailTitle">Foydalanuvchi profili</h3>
+                      <p id="userDetailMeta" class="muted text-sm m-0"></p>
+                    </div>
                   </div>
-                  <div>
-                    <label class="field-lbl" for="catNameInput">Fan nomi</label>
-                    <input id="catNameInput" class="input" type="text" placeholder="Masalan: Biologiya" required />
+                  <div class="btn-row">
+                    <button type="button" class="btn btn-ghost btn-sm" id="userDetailEditBtn">
+                      ✏️ Ma'lumotlarni tahrirlash
+                    </button>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="closeUserDetailPanel()">
+                      ✕ Yopish
+                    </button>
                   </div>
                 </div>
-                <div>
-                  <label class="field-lbl" for="catDescInput">Qisqa tavsif</label>
-                  <input id="catDescInput" class="input" type="text" placeholder="Fan haqida qisqacha..." />
-                </div>
-                <button type="submit" class="btn btn-primary w-full">Fan qo'shish</button>
-              </form>
 
-              <div class="divider"></div>
-              <h4 class="subhead">Mavjud fanlar</h4>
-              <div id="adminCategoriesList" class="mini-list"></div>
-            </div>
+                <!-- User KPI summary -->
+                <div id="userDetailStats" class="kpi-grid user-kpi-grid"></div>
 
-            <div class="glass-card">
-              <div class="card-head">
-                <h3>📝 Yangi Test Yaratish</h3>
-              </div>
-              <form onsubmit="adminCreateQuiz(event)" class="stack-form">
-                <div>
-                  <label class="field-lbl" for="quizCatSelect">Fan</label>
-                  <select id="quizCatSelect" class="input" required></select>
+                <!-- User Recent Attempts -->
+                <div class="user-subsection">
+                  <h4 class="subhead">📝 Ishlangan testlar tarixi</h4>
+                  <div id="userDetailAttempts" class="table-wrap"></div>
                 </div>
-                <div>
-                  <label class="field-lbl" for="quizTitleInput">Test nomi</label>
-                  <input id="quizTitleInput" class="input" type="text" placeholder="Masalan: Genetika asoslari" required />
-                </div>
-                <div class="form-row-3">
-                  <div>
-                    <label class="field-lbl" for="quizCodeInput">Kod (ixtiyoriy)</label>
-                    <input id="quizCodeInput" class="input mono" type="text" placeholder="Avto" maxlength="10" />
+
+                <div class="divider"></div>
+
+                <!-- User Chat History (at the bottom of user view) -->
+                <div class="user-chat-section">
+                  <div class="row-between mb-3">
+                    <div>
+                      <h3 class="m-0">💬 Chatlar Tarixi (<span id="userChatCount">0</span> ta xabar)</h3>
+                      <p class="muted text-sm m-0">Foydalanuvchining botdagi barcha yozishmalari, bosgan tugmalari va javoblari</p>
+                    </div>
+                    <div class="btn-row">
+                      <input
+                        id="userChatSearchInput"
+                        class="input input-sm question-search-input"
+                        type="search"
+                        placeholder="Chat ichidan qidirish..."
+                        aria-label="Chat tarixidan qidirish"
+                        oninput="renderSelectedUserChatMessages()"
+                      />
+                      <button type="button" class="btn btn-ghost btn-sm" onclick="refreshSelectedUserChats()">
+                        🔄 Yangilash
+                      </button>
+                      <button type="button" class="btn btn-danger btn-sm" onclick="clearSelectedUserChatsConfirm()">
+                        🧹 Tarixni tozalash
+                      </button>
+                    </div>
                   </div>
-                  <div>
-                    <label class="field-lbl" for="quizDiffSelect">Qiyinlik</label>
-                    <select id="quizDiffSelect" class="input">
-                      <option value="oson">🟢 Oson</option>
-                      <option value="orta" selected>🟡 O'rta</option>
-                      <option value="qiyin">🔴 Qiyin</option>
-                    </select>
+
+                  <div class="chat-history-frame">
+                    <div id="userChatHistoryList" class="chat-history-messages" aria-live="polite"></div>
+                    <form class="chat-history-reply-bar" onsubmit="sendSelectedUserChatReply(event)">
+                      <input
+                        id="userChatReplyInput"
+                        type="text"
+                        placeholder="Ushbu foydalanuvchiga Telegram orqali xabar yuborish..."
+                        aria-label="Foydalanuvchiga xabar yozish"
+                        autocomplete="off"
+                        required
+                      />
+                      <button type="submit" class="btn btn-primary btn-sm">📨 Yuborish</button>
+                    </form>
                   </div>
-                  <div>
-                    <label class="field-lbl" for="quizTimeInput">Vaqt (daq)</label>
-                    <input id="quizTimeInput" class="input" type="number" value="5" min="1" max="120" />
-                  </div>
-                </div>
-                <div>
-                  <label class="field-lbl" for="quizDescInput">Tavsif</label>
-                  <input id="quizDescInput" class="input" type="text" placeholder="Test haqida ma'lumot..." />
-                </div>
-                <button type="submit" class="btn btn-primary w-full">Test yaratish</button>
-              </form>
-            </div>
-          </div>
-
-          <!-- Right column: Quizzes & Question Editor -->
-          <div class="admin-right">
-            <div class="glass-card">
-              <div class="card-head row-between">
-                <h3>📚 Testlar va Savollar Muharriri</h3>
-                <span class="muted text-sm">Savollarni ko'rish va qo'shish uchun testni tanlang</span>
-              </div>
-              <div id="adminQuizzesList" class="quiz-admin-list"></div>
-            </div>
-
-            <div id="adminQuestionEditor" class="glass-card hidden">
-              <div class="card-head row-between">
-                <div>
-                  <h3 id="editorQuizTitle">Savollar</h3>
-                  <p id="editorQuizMeta" class="muted text-sm"></p>
-                </div>
-                <button type="button" class="btn btn-ghost btn-sm" onclick="closeQuestionEditor()">✕ Yopish</button>
-              </div>
-
-              <div class="editor-tabs">
-                <button type="button" class="pill-btn active" onclick="toggleEditorMode('single', this)">
-                  ➕ Bitta savol qo'shish
-                </button>
-                <button type="button" class="pill-btn" onclick="toggleEditorMode('bulk', this)">
-                  📥 Ko'plab savol import (matn)
-                </button>
-              </div>
-
-              <!-- Single Question Form -->
-              <form id="singleQuestionForm" onsubmit="adminCreateQuestion(event)" class="stack-form">
-                <div>
-                  <label class="field-lbl" for="qTextInput">Savol matni</label>
-                  <textarea id="qTextInput" class="input" rows="2" placeholder="Savolni kiriting..." required></textarea>
-                </div>
-                <div class="form-row-2">
-                  <div>
-                    <label class="field-lbl" for="qOptA">A varianti</label>
-                    <input id="qOptA" class="input" type="text" required />
-                  </div>
-                  <div>
-                    <label class="field-lbl" for="qOptB">B varianti</label>
-                    <input id="qOptB" class="input" type="text" required />
-                  </div>
-                  <div>
-                    <label class="field-lbl" for="qOptC">C varianti</label>
-                    <input id="qOptC" class="input" type="text" required />
-                  </div>
-                  <div>
-                    <label class="field-lbl" for="qOptD">D varianti</label>
-                    <input id="qOptD" class="input" type="text" required />
-                  </div>
-                </div>
-                <div class="form-row-2">
-                  <div>
-                    <label class="field-lbl" for="qCorrectSelect">To'g'ri javob</label>
-                    <select id="qCorrectSelect" class="input">
-                      <option value="A">A</option>
-                      <option value="B">B</option>
-                      <option value="C">C</option>
-                      <option value="D">D</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label class="field-lbl" for="qPointsInput">Ball</label>
-                    <input id="qPointsInput" class="input" type="number" value="10" min="1" max="100" />
-                  </div>
-                </div>
-                <div>
-                  <label class="field-lbl" for="qExplanationInput">Izoh (yechim tushuntirishi)</label>
-                  <input id="qExplanationInput" class="input" type="text" placeholder="Nima uchun bu javob to'g'ri?" />
-                </div>
-                <button type="submit" class="btn btn-primary">💾 Savolni saqlash</button>
-              </form>
-
-              <!-- Bulk Import Form -->
-              <form id="bulkQuestionForm" onsubmit="adminBulkQuestions(event)" class="stack-form hidden">
-                <div>
-                  <label class="field-lbl" for="bulkRawInput">
-                    Format 1: <code>Savol | A | B | C | D | To'g'ri | Izoh</code> — yoki Format 2: <code># Savol</code> va <code>+ A.</code> bloklari
-                  </label>
-                  <textarea
-                    id="bulkRawInput"
-                    class="input mono"
-                    rows="5"
-                    placeholder="2 + 2 nechaga teng? | 3 | 4 | 5 | 6 | B | 2 ga 2 ni qo'shsak 4 bo'ladi.&#10;&#10;yoki:&#10;# Savol matni?&#10;+ A. To'g'ri javob&#10;B. Variant B&#10;C. Variant C&#10;D. Variant D"
-                    required
-                  ></textarea>
-                </div>
-                <button type="submit" class="btn btn-primary">📥 Hammasini import qilish</button>
-              </form>
-
-              <div class="divider"></div>
-              <div class="row-between mb-3">
-                <h4 class="subhead m-0">Testdagi savollar (<span id="editorQuestionsCount">0</span> ta)</h4>
-                <input
-                  id="editorQuestionSearch"
-                  class="input input-sm question-search-input"
-                  type="search"
-                  placeholder="Savol matni bo'yicha qidirish..."
-                  oninput="renderEditorQuestionsList()"
-                />
-              </div>
-              <div id="editorQuestionsList" class="questions-list questions-scroll"></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- TAB 4: User Management & Broadcast -->
-      <section
-        id="tab-users"
-        class="tab-panel"
-        role="tabpanel"
-        aria-labelledby="tab-btn-users"
-      >
-        <div class="users-layout">
-          <div class="glass-card">
-            <div class="card-head row-between">
-              <div>
-                <h2>👥 Foydalanuvchilarni Boshqarish</h2>
-                <p class="muted">Foydalanuvchi ustiga bosing yoki 💬 tugmasini tanlab profil va chatlar tarixini ko'ring</p>
-              </div>
-              <button type="button" class="btn btn-primary btn-sm" onclick="openCreateUserModal()">
-                ➕ Yangi foydalanuvchi
-              </button>
-            </div>
-
-            <div class="users-toolbar">
-              <input
-                id="userSearchInput"
-                class="input"
-                type="search"
-                placeholder="Ism, @username yoki Telegram ID bo'yicha qidirish..."
-                aria-label="Foydalanuvchini qidirish"
-                oninput="renderUsersTable()"
-              />
-              <select
-                id="userRoleFilter"
-                class="input input-sm"
-                aria-label="Rol bo'yicha filtrlash"
-                onchange="renderUsersTable()"
-              >
-                <option value="all">Barchasi</option>
-                <option value="admin">🛡 Faqat Adminlar</option>
-                <option value="user">👤 Oddiy foydalanuvchilar</option>
-              </select>
-            </div>
-
-            <div id="usersTableWrap" class="table-wrap"></div>
-          </div>
-
-          <!-- Selected User Profile & Chat History Section -->
-          <div id="userDetailPanel" class="glass-card user-detail-card hidden">
-            <div class="card-head row-between">
-              <div class="user-profile-head">
-                <div class="user-avatar-lg" id="userDetailAvatar" aria-hidden="true">👤</div>
-                <div>
-                  <h3 id="userDetailTitle">Foydalanuvchi profili</h3>
-                  <p id="userDetailMeta" class="muted text-sm m-0"></p>
-                </div>
-              </div>
-              <div class="btn-row">
-                <button type="button" class="btn btn-ghost btn-sm" id="userDetailEditBtn">
-                  ✏️ Ma'lumotlarni tahrirlash
-                </button>
-                <button type="button" class="btn btn-ghost btn-sm" onclick="closeUserDetailPanel()">
-                  ✕ Yopish
-                </button>
-              </div>
-            </div>
-
-            <!-- User KPI summary -->
-            <div id="userDetailStats" class="kpi-grid user-kpi-grid"></div>
-
-            <!-- User Recent Attempts -->
-            <div class="user-subsection">
-              <h4 class="subhead">📝 Ishlangan testlar tarixi</h4>
-              <div id="userDetailAttempts" class="table-wrap"></div>
-            </div>
-
-            <div class="divider"></div>
-
-            <!-- User Chat History (at the bottom of user view) -->
-            <div class="user-chat-section">
-              <div class="row-between mb-3">
-                <div>
-                  <h3 class="m-0">💬 Chatlar Tarixi (<span id="userChatCount">0</span> ta xabar)</h3>
-                  <p class="muted text-sm m-0">Foydalanuvchining botdagi barcha yozishmalari, bosgan tugmalari va javoblari</p>
-                </div>
-                <div class="btn-row">
-                  <input
-                    id="userChatSearchInput"
-                    class="input input-sm question-search-input"
-                    type="search"
-                    placeholder="Chat ichidan qidirish..."
-                    aria-label="Chat tarixidan qidirish"
-                    oninput="renderSelectedUserChatMessages()"
-                  />
-                  <button type="button" class="btn btn-ghost btn-sm" onclick="refreshSelectedUserChats()">
-                    🔄 Yangilash
-                  </button>
-                  <button type="button" class="btn btn-danger btn-sm" onclick="clearSelectedUserChatsConfirm()">
-                    🧹 Tarixni tozalash
-                  </button>
                 </div>
               </div>
 
-              <div class="chat-history-frame">
-                <div id="userChatHistoryList" class="chat-history-messages" aria-live="polite"></div>
-                <form class="chat-history-reply-bar" onsubmit="sendSelectedUserChatReply(event)">
-                  <input
-                    id="userChatReplyInput"
-                    type="text"
-                    placeholder="Ushbu foydalanuvchiga Telegram orqali xabar yuborish..."
-                    aria-label="Foydalanuvchiga xabar yozish"
-                    autocomplete="off"
-                    required
-                  />
-                  <button type="submit" class="btn btn-primary btn-sm">📨 Yuborish</button>
+              <div class="glass-card">
+                <div class="card-head">
+                  <h3>📢 Telegram E'lon Yuborish</h3>
+                  <p class="muted">Bot ulangan holatda barcha ro'yxatdan o'tgan Telegram foydalanuvchilarga xabar yuboradi</p>
+                </div>
+                <form onsubmit="sendBroadcast(event)" class="stack-form">
+                  <div>
+                    <label class="field-lbl" for="broadcastTextInput">Xabar matni</label>
+                    <textarea
+                      id="broadcastTextInput"
+                      class="input"
+                      rows="3"
+                      placeholder="Barcha foydalanuvchilar uchun xabar matnini yozing..."
+                      required
+                    ></textarea>
+                  </div>
+                  <div>
+                    <button type="submit" class="btn btn-primary">📨 Hammaga Telegram xabar yuborish</button>
+                  </div>
                 </form>
               </div>
             </div>
-          </div>
+          </section>
 
-          <div class="glass-card">
-            <div class="card-head">
-              <h3>📢 Telegram E'lon Yuborish</h3>
-              <p class="muted">Bot ulangan holatda barcha ro'yxatdan o'tgan Telegram foydalanuvchilarga xabar yuboradi</p>
-            </div>
-            <form onsubmit="sendBroadcast(event)" class="stack-form">
-              <div>
-                <label class="field-lbl" for="broadcastTextInput">Xabar matni</label>
-                <textarea
-                  id="broadcastTextInput"
-                  class="input"
-                  rows="3"
-                  placeholder="Barcha foydalanuvchilar uchun xabar matnini yozing..."
-                  required
-                ></textarea>
-              </div>
-              <div>
-                <button type="submit" class="btn btn-primary">📨 Hammaga Telegram xabar yuborish</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </section>
-
-      <!-- TAB 5: Leaderboard & Recent Activity -->
-      <section
-        id="tab-leaderboard"
-        class="tab-panel"
-        role="tabpanel"
-        aria-labelledby="tab-btn-leaderboard"
-      >
-        <div class="lb-grid">
-          <div class="glass-card">
-            <div class="card-head row-between">
-              <h3>🏆 Eng Yaxshi Ishtirokchilar</h3>
-              <select
-                id="lbCatFilter"
-                class="input input-sm"
-                aria-label="Yo'nalish bo'yicha reyting"
-                onchange="loadLeaderboard()"
-              >
-                <option value="">🌍 Umumiy reyting</option>
-              </select>
-            </div>
-            <div id="leaderboardTableWrap" class="table-wrap"></div>
-          </div>
-
-          <div class="glass-card">
-            <div class="card-head row-between">
-              <h3>🕒 Oxirgi Yakunlangan Testlar</h3>
-              <button type="button" class="btn btn-danger btn-sm" onclick="clearAllAttemptsConfirm()">
-                🧹 Hammasini tozalash
-              </button>
-            </div>
-            <div id="recentAttemptsWrap" class="table-wrap"></div>
-          </div>
-        </div>
-      </section>
-
-      <!-- TAB 6: Telegram Bot & Studio Settings -->
-      <section
-        id="tab-settings"
-        class="tab-panel"
-        role="tabpanel"
-        aria-labelledby="tab-btn-settings"
-      >
-        <div class="settings-grid">
-          <div class="glass-card">
-            <div class="card-head">
-              <h2>🤖 Haqiqiy Telegram Botga Ulash</h2>
-              <p class="muted">
-                @BotFather dan olgan tokeningizni kiriting — bot darhol <code>.env</code> fayliga saqlanadi va serverni qayta ishga tushirmasdan Telegram'da ishlay boshlaydi.
-              </p>
-            </div>
-
-            <div id="settingsStatusBox" class="status-banner" role="status"></div>
-
-            <form onsubmit="saveBotToken(event)" class="stack-form">
-              <div>
-                <label class="field-lbl" for="botTokenInput">Telegram Bot Token (@BotFather)</label>
-                <div class="input-group">
-                  <input
-                    id="botTokenInput"
-                    class="input mono"
-                    type="password"
-                    placeholder="1234567890:ABCdefGHIjklMNOpqrsTUVwxyz"
-                  />
-                  <button
-                    type="button"
-                    class="input-addon-btn"
-                    onclick="togglePasswordVisibility('botTokenInput', this)"
-                    aria-label="Tokenni ko'rsatish yoki yashirish"
-                  >👁</button>
+          <!-- TAB 5: Leaderboard & Recent Activity -->
+          <section
+            id="tab-leaderboard"
+            class="tab-panel"
+            role="tabpanel"
+            aria-labelledby="tab-btn-leaderboard"
+          >
+            <div class="lb-grid">
+              <div class="glass-card">
+                <div class="card-head row-between">
+                  <h3>🏆 Eng Yaxshi Ishtirokchilar</h3>
+                  <select
+                    id="lbCatFilter"
+                    class="input input-sm"
+                    aria-label="Yo'nalish bo'yicha reyting"
+                    onchange="loadLeaderboard()"
+                  >
+                    <option value="">🌍 Umumiy reyting</option>
+                  </select>
                 </div>
+                <div id="leaderboardTableWrap" class="table-wrap"></div>
               </div>
-              <div>
-                <label class="field-lbl" for="adminIdsInput">Admin Telegram ID lar (vergul bilan ajratilgan)</label>
-                <input
-                  id="adminIdsInput"
-                  class="input mono"
-                  type="text"
-                  placeholder="123456789"
-                />
-                <p class="hint">O'zingizning Telegram ID ingizni bilish uchun Telegram'da <code>@userinfobot</code> ga yozing.</p>
-              </div>
-              <div class="btn-row">
-                <button type="submit" class="btn btn-primary">💾 Saqlash va Botni Yoqish</button>
-                <button type="button" class="btn btn-ghost" onclick="disconnectBotToken()">🔌 Botni To'xtatish</button>
-              </div>
-            </form>
-          </div>
 
-          <div class="glass-card">
-            <div class="card-head">
-              <h3>🔐 Admin Panel Login va Parolni O'zgartirish</h3>
-              <p class="muted">TestMaster Bot Studio boshqaruv paneliga kirish ma'lumotlarini yangilang.</p>
-            </div>
-
-            <form onsubmit="updateStudioCredentials(event)" class="stack-form">
-              <div>
-                <label class="field-lbl" for="credCurrentPassword">Joriy parol</label>
-                <div class="input-group">
-                  <input
-                    id="credCurrentPassword"
-                    class="input"
-                    type="password"
-                    placeholder="Hozirgi parolingiz"
-                    autocomplete="current-password"
-                    required
-                  />
-                  <button
-                    type="button"
-                    class="input-addon-btn"
-                    onclick="togglePasswordVisibility('credCurrentPassword', this)"
-                    aria-label="Joriy parolni ko'rsatish"
-                  >👁</button>
+              <div class="glass-card">
+                <div class="card-head row-between">
+                  <h3>🕒 Oxirgi Yakunlangan Testlar</h3>
+                  <button type="button" class="btn btn-danger btn-sm" onclick="clearAllAttemptsConfirm()">
+                    🧹 Hammasini tozalash
+                  </button>
                 </div>
+                <div id="recentAttemptsWrap" class="table-wrap"></div>
               </div>
-              <div>
-                <label class="field-lbl" for="credNewUsername">Yangi login</label>
-                <input
-                  id="credNewUsername"
-                  class="input"
-                  type="text"
-                  minlength="2"
-                  placeholder="Masalan: muxandis"
-                  autocomplete="username"
-                  required
-                />
-              </div>
-              <div>
-                <label class="field-lbl" for="credNewPassword">Yangi parol (kamida 4 belgi)</label>
-                <div class="input-group">
-                  <input
-                    id="credNewPassword"
-                    class="input"
-                    type="password"
-                    minlength="4"
-                    placeholder="Yangi kuchli parol"
-                    autocomplete="new-password"
-                    required
-                  />
-                  <button
-                    type="button"
-                    class="input-addon-btn"
-                    onclick="togglePasswordVisibility('credNewPassword', this)"
-                    aria-label="Yangi parolni ko'rsatish"
-                  >👁</button>
-                </div>
-              </div>
-              <div>
-                <button type="submit" class="btn btn-primary">🔑 Login va Parolni Yangilash</button>
-              </div>
-            </form>
-          </div>
-
-          <div class="glass-card">
-            <div class="card-head">
-              <h3>📖 Qadam-baqadam qo'llanma</h3>
             </div>
-            <ol class="guide-steps">
-              <li>Telegram'da <strong>@BotFather</strong> botini oching va <code>/newbot</code> buyrug'ini yuboring.</li>
-              <li>Botga nom va <code>...bot</code> bilan tugaydigan username bering.</li>
-              <li>Berilgan API tokenni nusxalab chapdagi maydonga joylang.</li>
-              <li><strong>Saqlash va Botni Yoqish</strong> tugmasini bosing — bot 2 soniyada faollashadi!</li>
-              <li>Telegram'da botingizga <code>/start</code> bosing va zavqlaning.</li>
-            </ol>
-          </div>
-        </div>
-      </section>
-    </main>
+          </section>
+
+          <!-- TAB 6: Telegram Bot & Studio Settings -->
+          <section
+            id="tab-settings"
+            class="tab-panel"
+            role="tabpanel"
+            aria-labelledby="tab-btn-settings"
+          >
+            <div class="settings-grid">
+              <div class="glass-card">
+                <div class="card-head">
+                  <h2>🤖 Haqiqiy Telegram Botga Ulash</h2>
+                  <p class="muted">
+                    @BotFather dan olgan tokeningizni kiriting — bot darhol <code>.env</code> fayliga saqlanadi va serverni qayta ishga tushirmasdan Telegram'da ishlay boshlaydi.
+                  </p>
+                </div>
+
+                <div id="settingsStatusBox" class="status-banner" role="status"></div>
+
+                <form onsubmit="saveBotToken(event)" class="stack-form">
+                  <div>
+                    <label class="field-lbl" for="botTokenInput">Telegram Bot Token (@BotFather)</label>
+                    <div class="input-group">
+                      <input
+                        id="botTokenInput"
+                        class="input mono"
+                        type="password"
+                        placeholder="1234567890:ABCdefGHIjklMNOpqrsTUVwxyz"
+                      />
+                      <button
+                        type="button"
+                        class="input-addon-btn"
+                        onclick="togglePasswordVisibility('botTokenInput', this)"
+                        aria-label="Tokenni ko'rsatish yoki yashirish"
+                      >👁</button>
+                    </div>
+                  </div>
+                  <div>
+                    <label class="field-lbl" for="adminIdsInput">Admin Telegram ID lar (vergul bilan ajratilgan)</label>
+                    <input
+                      id="adminIdsInput"
+                      class="input mono"
+                      type="text"
+                      placeholder="123456789"
+                    />
+                    <p class="hint">O'zingizning Telegram ID ingizni bilish uchun Telegram'da <code>@userinfobot</code> ga yozing.</p>
+                  </div>
+                  <div class="btn-row">
+                    <button type="submit" class="btn btn-primary">💾 Saqlash va Botni Yoqish</button>
+                    <button type="button" class="btn btn-ghost" onclick="disconnectBotToken()">🔌 Botni To'xtatish</button>
+                  </div>
+                </form>
+              </div>
+
+              <div class="glass-card">
+                <div class="card-head">
+                  <h3>🔐 Admin Panel Login va Parolni O'zgartirish</h3>
+                  <p class="muted">TestMaster Bot Studio boshqaruv paneliga kirish ma'lumotlarini yangilang.</p>
+                </div>
+
+                <form onsubmit="updateStudioCredentials(event)" class="stack-form">
+                  <div>
+                    <label class="field-lbl" for="credCurrentPassword">Joriy parol</label>
+                    <div class="input-group">
+                      <input
+                        id="credCurrentPassword"
+                        class="input"
+                        type="password"
+                        placeholder="Hozirgi parolingiz"
+                        autocomplete="current-password"
+                        required
+                      />
+                      <button
+                        type="button"
+                        class="input-addon-btn"
+                        onclick="togglePasswordVisibility('credCurrentPassword', this)"
+                        aria-label="Joriy parolni ko'rsatish"
+                      >👁</button>
+                    </div>
+                  </div>
+                  <div>
+                    <label class="field-lbl" for="credNewUsername">Yangi login</label>
+                    <input
+                      id="credNewUsername"
+                      class="input"
+                      type="text"
+                      minlength="2"
+                      placeholder="Masalan: muxandis"
+                      autocomplete="username"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label class="field-lbl" for="credNewPassword">Yangi parol (kamida 4 belgi)</label>
+                    <div class="input-group">
+                      <input
+                        id="credNewPassword"
+                        class="input"
+                        type="password"
+                        minlength="4"
+                        placeholder="Yangi kuchli parol"
+                        autocomplete="new-password"
+                        required
+                      />
+                      <button
+                        type="button"
+                        class="input-addon-btn"
+                        onclick="togglePasswordVisibility('credNewPassword', this)"
+                        aria-label="Yangi parolni ko'rsatish"
+                      >👁</button>
+                    </div>
+                  </div>
+                  <div>
+                    <button type="submit" class="btn btn-primary">🔑 Login va Parolni Yangilash</button>
+                  </div>
+                </form>
+              </div>
+
+              <div class="glass-card">
+                <div class="card-head">
+                  <h3>📖 Qadam-baqadam qo'llanma</h3>
+                </div>
+                <ol class="guide-steps">
+                  <li>Telegram'da <strong>@BotFather</strong> botini oching va <code>/newbot</code> buyrug'ini yuboring.</li>
+                  <li>Botga nom va <code>...bot</code> bilan tugaydigan username bering.</li>
+                  <li>Berilgan API tokenni nusxalab chapdagi maydonga joylang.</li>
+                  <li><strong>Saqlash va Botni Yoqish</strong> tugmasini bosing — bot va Mini App 2 soniyada faollashadi!</li>
+                  <li>Telegram'da botingizga <code>/start</code> bosing va zavqlaning.</li>
+                </ol>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
   </div>
+
+  <!-- Zenith Live Theme Customizer Drawer -->
+  <aside id="themeCustomizer" class="customizer-drawer hidden" aria-label="Zenith Mavzu Sozlagichi">
+    <div class="customizer-head row-between">
+      <div>
+        <h3 class="m-0">🎨 Zenith Theme Customizer</h3>
+        <p class="muted text-sm m-0">Admin panel ko'rinishini moslashtiring</p>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="toggleThemeCustomizer()">✕</button>
+    </div>
+
+    <div class="customizer-body">
+      <div class="customizer-section">
+        <span class="field-lbl">Mavzu rejimi (Theme Mode)</span>
+        <div class="customizer-grid-2">
+          <button type="button" class="preset-btn" data-theme-opt="dark" onclick="setZenithPref('theme', 'dark')">🌙 Dark</button>
+          <button type="button" class="preset-btn" data-theme-opt="light" onclick="setZenithPref('theme', 'light')">☀️ Light</button>
+        </div>
+      </div>
+
+      <div class="customizer-section">
+        <span class="field-lbl">Rang palitrasi (Color Preset)</span>
+        <div class="customizer-grid-2">
+          <button type="button" class="preset-btn" data-preset-opt="teal" onclick="setZenithPref('preset', 'teal')">
+            <span class="swatch swatch-teal"></span> Teal (Default)
+          </button>
+          <button type="button" class="preset-btn" data-preset-opt="zinc" onclick="setZenithPref('preset', 'zinc')">
+            <span class="swatch swatch-zinc"></span> Zinc
+          </button>
+          <button type="button" class="preset-btn" data-preset-opt="ocean" onclick="setZenithPref('preset', 'ocean')">
+            <span class="swatch swatch-ocean"></span> Ocean
+          </button>
+          <button type="button" class="preset-btn" data-preset-opt="violet" onclick="setZenithPref('preset', 'violet')">
+            <span class="swatch swatch-violet"></span> Violet
+          </button>
+          <button type="button" class="preset-btn" data-preset-opt="emerald" onclick="setZenithPref('preset', 'emerald')">
+            <span class="swatch swatch-emerald"></span> Forest
+          </button>
+          <button type="button" class="preset-btn" data-preset-opt="rose" onclick="setZenithPref('preset', 'rose')">
+            <span class="swatch swatch-rose"></span> Berry
+          </button>
+        </div>
+      </div>
+
+      <div class="customizer-section">
+        <span class="field-lbl">Zichlik (Density)</span>
+        <div class="customizer-grid-3">
+          <button type="button" class="preset-btn" data-density-opt="compact" onclick="setZenithPref('density', 'compact')">Compact</button>
+          <button type="button" class="preset-btn" data-density-opt="default" onclick="setZenithPref('density', 'default')">Default</button>
+          <button type="button" class="preset-btn" data-density-opt="spacious" onclick="setZenithPref('density', 'spacious')">Spacious</button>
+        </div>
+      </div>
+
+      <div class="customizer-section">
+        <span class="field-lbl">Navigatsiya joylashuvi (Layout)</span>
+        <div class="customizer-grid-2">
+          <button type="button" class="preset-btn" data-layout-opt="sidebar" onclick="setZenithPref('layout', 'sidebar')">◧ Sidebar</button>
+          <button type="button" class="preset-btn" data-layout-opt="topnav" onclick="setZenithPref('layout', 'topnav')">⊤ Top-Nav</button>
+        </div>
+      </div>
+    </div>
+  </aside>
 
   <!-- Studio Universal Modal -->
   <div

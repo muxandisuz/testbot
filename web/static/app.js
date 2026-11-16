@@ -220,15 +220,135 @@ function closeStudioModal() {
   $id("studioModal")?.classList.add("hidden");
 }
 
+// ---------------------------------------------------------------------------
+// Zenith Sidebar, Theme Customizer & Mini App Helpers
+// ---------------------------------------------------------------------------
+
+const ZENITH_PREFS_KEY = "tm_zenith_prefs";
+
+function loadZenithPrefs() {
+  try {
+    const raw = localStorage.getItem(ZENITH_PREFS_KEY);
+    const prefs = raw ? JSON.parse(raw) : {};
+    applyZenithPrefs({
+      theme: prefs.theme || "dark",
+      preset: prefs.preset || "teal",
+      density: prefs.density || "default",
+      layout: prefs.layout || "sidebar",
+    });
+  } catch {
+    applyZenithPrefs({ theme: "dark", preset: "teal", density: "default", layout: "sidebar" });
+  }
+}
+
+function applyZenithPrefs(prefs) {
+  const root = document.documentElement;
+  root.setAttribute("data-theme", prefs.theme);
+  root.setAttribute("data-preset", prefs.preset);
+  root.setAttribute("data-density", prefs.density);
+  root.setAttribute("data-layout", prefs.layout);
+
+  const modeBtn = $id("themeModeBtn");
+  if (modeBtn) {
+    modeBtn.textContent = prefs.theme === "light" ? "☀️" : "🌙";
+  }
+
+  document.querySelectorAll("[data-theme-opt]").forEach((b) => {
+    b.classList.toggle("active", b.dataset.themeOpt === prefs.theme);
+  });
+  document.querySelectorAll("[data-preset-opt]").forEach((b) => {
+    b.classList.toggle("active", b.dataset.presetOpt === prefs.preset);
+  });
+  document.querySelectorAll("[data-density-opt]").forEach((b) => {
+    b.classList.toggle("active", b.dataset.densityOpt === prefs.density);
+  });
+  document.querySelectorAll("[data-layout-opt]").forEach((b) => {
+    b.classList.toggle("active", b.dataset.layoutOpt === prefs.layout);
+  });
+}
+
+function setZenithPref(key, value) {
+  const root = document.documentElement;
+  const current = {
+    theme: root.getAttribute("data-theme") || "dark",
+    preset: root.getAttribute("data-preset") || "teal",
+    density: root.getAttribute("data-density") || "default",
+    layout: root.getAttribute("data-layout") || "sidebar",
+  };
+  current[key] = value;
+  applyZenithPrefs(current);
+  try {
+    localStorage.setItem(ZENITH_PREFS_KEY, JSON.stringify(current));
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
+function toggleThemeMode() {
+  const cur = document.documentElement.getAttribute("data-theme") || "dark";
+  setZenithPref("theme", cur === "dark" ? "light" : "dark");
+}
+
+function toggleThemeCustomizer() {
+  $id("themeCustomizer")?.classList.toggle("hidden");
+}
+
+function toggleSidebar() {
+  const sidebar = $id("zenithSidebar");
+  if (!sidebar) return;
+  if (window.innerWidth <= 900) {
+    const isOpen = sidebar.classList.toggle("mobile-open");
+    $id("sidebarBackdrop")?.classList.toggle("hidden", !isOpen);
+  } else {
+    sidebar.classList.toggle("collapsed");
+  }
+}
+
+function closeMobileSidebar() {
+  $id("zenithSidebar")?.classList.remove("mobile-open");
+  $id("sidebarBackdrop")?.classList.add("hidden");
+}
+
+function reloadMiniAppFrame() {
+  const frame = $id("miniAppIframe");
+  if (frame) {
+    frame.src = `/webapp?t=${Date.now()}`;
+    showGlobalToast("🔄 Mini App yangilandi");
+  }
+}
+
+function copyMiniAppUrl() {
+  const field = $id("miniAppUrlField");
+  if (!field) return;
+  navigator.clipboard?.writeText(field.value).catch(() => {});
+  showGlobalToast("📋 Mini App URL nusxalandi!");
+}
+
 function switchTab(tabName) {
+  let activeTitle = "Dashboard";
   document.querySelectorAll(".tab-btn").forEach((btn) => {
     const isActive = btn.dataset.tab === tabName;
     btn.classList.toggle("active", isActive);
     btn.setAttribute("aria-selected", isActive ? "true" : "false");
+    if (isActive && btn.dataset.title) {
+      activeTitle = btn.dataset.title;
+    }
   });
+  const bc = $id("activeBreadcrumb");
+  if (bc) bc.textContent = activeTitle;
+
   document.querySelectorAll(".tab-panel").forEach((panel) => {
     panel.classList.toggle("active", panel.id === `tab-${tabName}`);
   });
+
+  closeMobileSidebar();
+
+  if (tabName === "miniapp") {
+    const urlInput = $id("miniAppUrlField");
+    if (urlInput && window.location.origin) {
+      urlInput.value = `${window.location.origin}/webapp`;
+    }
+  }
   if (tabName === "users") loadUsers();
   if (tabName === "leaderboard") loadLeaderboard();
   if (tabName === "settings") loadBotStatus();
@@ -885,7 +1005,14 @@ function renderBotCard(resp, replaceLast = false) {
         b.className = "tg-kb-btn";
         b.textContent = btnSpec.text;
         b.title = btnSpec.text;
-        b.onclick = () => simSendCallback(btnSpec.callback_data);
+        if (btnSpec.web_app_url) {
+          b.onclick = () => {
+            switchTab("miniapp");
+            showGlobalToast("📱 Mini App rejimi ochildi");
+          };
+        } else {
+          b.onclick = () => simSendCallback(btnSpec.callback_data);
+        }
         rowDiv.appendChild(b);
       });
       kbWrap.appendChild(rowDiv);
@@ -1903,6 +2030,7 @@ window.addEventListener("keydown", (e) => {
 });
 
 async function checkSessionAndBoot() {
+  loadZenithPrefs();
   try {
     const me = await apiFetch("/api/auth/me");
     if (me.authenticated) {

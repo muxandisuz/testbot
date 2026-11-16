@@ -10,7 +10,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import BotCommand
+from aiogram.types import BotCommand, MenuButtonWebApp, WebAppInfo
 
 from bot.handlers import admin as admin_handlers
 from bot.handlers import user as user_handlers
@@ -89,6 +89,17 @@ class BotManager:
                     BotCommand(command="admin", description="⚙️ Admin panel"),
                 ]
             )
+            webapp_url = get_settings().webapp_url.strip()
+            if webapp_url.startswith("https://"):
+                try:
+                    await bot.set_chat_menu_button(
+                        menu_button=MenuButtonWebApp(
+                            text="📱 Mini App",
+                            web_app=WebAppInfo(url=webapp_url),
+                        )
+                    )
+                except Exception as menu_exc:
+                    logger.debug("Mini App menu button o'rnatilmadi: %s", menu_exc)
         except Exception as exc:
             await bot.session.close()
             self._status["mode"] = "error"

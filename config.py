@@ -16,6 +16,13 @@ def _default_host() -> str:
     return "0.0.0.0" if ("RAILWAY_ENVIRONMENT" in os.environ or "PORT" in os.environ) else "127.0.0.1"
 
 
+def _default_webapp_url() -> str:
+    domain = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "").strip()
+    if domain:
+        return f"https://{domain}/webapp"
+    return "https://ubs-testbot.up.railway.app/webapp"
+
+
 class Settings(BaseSettings):
     """Runtime settings loaded from environment variables and .env."""
 
@@ -23,6 +30,7 @@ class Settings(BaseSettings):
     admin_ids: str = "123456789"
     admin_login: str = "muxandis"
     admin_password: str = "muxandis2026"
+    webapp_url: str = Field(default_factory=_default_webapp_url)
     database_path: str = "quiz_bot.db"
     host: str = Field(default_factory=_default_host)
     port: int = 8000

@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>TestMaster Mini App — Telegram Test Platformasi</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #09090b;
+      --surface: #121215;
+      --surface-elevated: #18181b;
+      --border: #27272a;
+      --text: #fafafa;
+      --muted: #a1a1aa;
+      --primary: #14b8a6;
+      --primary-fg: #042f2e;
+      --emerald: #10b981;
+      --rose: #f43f5e;
+      --amber: #f59e0b;
+      --radius: 14px;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Inter", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 82px;
+      line-height: 1.48;
+    }
+
+    .mono {
+      font-family: "JetBrains Mono", monospace;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .tma-shell {
+      max-width: 540px;
+      margin: 0 auto;
+      padding: 14px 14px 24px;
+    }
+
+    /* Header */
+    .tma-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 14px;
+    }
+
+    .tma-user {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .tma-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 11px;
+      background: linear-gradient(135deg, #14b8a6, #0ea5e9);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 1.05rem;
+      flex-shrink: 0;
+    }
+
+    .tma-user-name {
+      font-weight: 700;
+      font-size: 0.94rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tma-user-sub {
+      font-size: 0.76rem;
+      color: var(--muted);
+    }
+
+    .xp-pill {
+      padding: 6px 11px;
+      border-radius: 999px;
+      background: rgba(20, 184, 166, 0.14);
+      border: 1px solid rgba(20, 184, 166, 0.35);
+      color: #5eead4;
+      font-weight: 700;
+      font-size: 0.8rem;
+      white-space: nowrap;
+    }
+
+    /* Cards & Controls */
+    .tma-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 15px;
+      margin-bottom: 12px;
+    }
+
+    .tma-card h2,
+    .tma-card h3 {
+      margin: 0 0 6px;
+      font-size: 1.02rem;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 0.84rem;
+      margin: 0;
+    }
+
+    .row-between {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .code-bar {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .tma-input {
+      flex: 1;
+      min-width: 0;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.9rem;
+      outline: none;
+    }
+
+    .tma-input:focus {
+      border-color: var(--primary);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.86rem;
+      cursor: pointer;
+      transition: transform 0.1s ease, opacity 0.15s ease;
+    }
+
+    .btn:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #042f2e;
+      font-weight: 700;
+    }
+
+    .btn-ghost {
+      background: var(--surface-elevated);
+      border-color: var(--border);
+      color: var(--text);
+    }
+
+    .btn-danger {
+      background: rgba(244, 63, 94, 0.16);
+      border-color: rgba(244, 63, 94, 0.38);
+      color: #fda4af;
+    }
+
+    .btn-full {
+      width: 100%;
+    }
+
+    .btn-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .quiz-meta {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    /* Runner */
+    .progress-track {
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--surface-elevated);
+      overflow: hidden;
+      margin: 12px 0;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), var(--emerald));
+      transition: width 0.22s ease;
+    }
+
+    .opt-list {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      margin-top: 14px;
+    }
+
+    .opt-btn {
+      width: 100%;
+      text-align: left;
+      padding: 12px 13px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface-elevated);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      cursor: pointer;
+    }
+
+    .opt-btn.selected {
+      border-color: var(--primary);
+      background: rgba(20, 184, 166, 0.16);
+    }
+
+    .opt-btn.correct {
+      border-color: var(--emerald);
+      background: rgba(16, 185, 129, 0.2);
+    }
+
+    .opt-btn.wrong {
+      border-color: var(--rose);
+      background: rgba(244, 63, 94, 0.2);
+    }
+
+    .opt-letter {
+      width: 25px;
+      height: 25px;
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.08);
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 0.8rem;
+      flex-shrink: 0;
+    }
+
+    .fb-box {
+      margin-top: 12px;
+      padding: 11px 13px;
+      border-radius: 11px;
+      background: rgba(20, 184, 166, 0.12);
+      border: 1px solid rgba(20, 184, 166, 0.32);
+      font-size: 0.85rem;
+    }
+
+    .dots-strip {
+      display: flex;
+      gap: 5px;
+      overflow-x: auto;
+      padding: 8px 0 2px;
+      margin-top: 12px;
+    }
+
+    .dot-btn {
+      flex: 0 0 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface-elevated);
+      color: var(--text);
+      font-size: 0.76rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .dot-btn.active {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.28);
+    }
+
+    .dot-btn.answered {
+      background: rgba(20, 184, 166, 0.22);
+      border-color: var(--primary);
+    }
+
+    /* KPI 2x2 */
+    .kpi-2x2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .kpi-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .kpi-box .val {
+      font-size: 1.2rem;
+      font-weight: 800;
+    }
+
+    .kpi-box .lbl {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    /* Bottom Navigation */
+    .tma-bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 50;
+      background: rgba(18, 18, 21, 0.94);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-around;
+      padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .nav-item {
+      flex: 1;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 0.75rem;
+      font-weight: 600;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 6px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    .nav-item .ico {
+      font-size: 1.15rem;
+    }
+
+    .nav-item.active {
+      color: #5eead4;
+      background: rgba(20, 184, 166, 0.12);
+    }
+  </style>
+</head>
+<body>
+  <div class="tma-shell">
+    <!-- User Header -->
+    <header class="tma-header">
+      <div class="tma-user">
+        <div class="tma-avatar" id="tmaAvatar">🦉</div>
+        <div>
+          <div class="tma-user-name" id="tmaUserName">Yuklanmoqda...</div>
+          <div class="tma-user-sub" id="tmaUserRank">Telegram Mini App</div>
+        </div>
+      </div>
+      <div class="xp-pill" id="tmaUserXp">0 XP</div>
+    </header>
+
+    <!-- VIEW 1: Quizzes & Runner -->
+    <main id="tmaViewQuizzes">
+      <div id="tmaLobby">
+        <div class="tma-card">
+          <h3>🔑 Test kodi orqali tezkor kirish</h3>
+          <p class="muted">Test kodini kiriting (masalan: 2000 — Falsafa 175 ta savol)</p>
+          <div class="code-bar">
+            <input id="tmaCodeInput" class="tma-input mono" type="text" placeholder="Kod: 2000" />
+            <button type="button" class="btn btn-primary" onclick="tmaStartByCode()">Ochish</button>
+          </div>
+        </div>
+
+        <div id="tmaQuizzesList"></div>
+      </div>
+
+      <div id="tmaRunner" class="hidden"></div>
+    </main>
+
+    <!-- VIEW 2: User Stats -->
+    <section id="tmaViewStats" class="hidden">
+      <div class="kpi-2x2" id="tmaStatsGrid"></div>
+      <div class="tma-card">
+        <h3>🕒 Mening oxirgi testlarim</h3>
+        <div id="tmaMyAttempts"></div>
+      </div>
+    </section>
+
+    <!-- VIEW 3: Leaderboard -->
+    <section id="tmaViewLeaderboard" class="hidden">
+      <div class="tma-card">
+        <h3>🏆 Umumiy Reyting (Top Ishtirokchilar)</h3>
+        <div id="tmaLeaderboardList"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Bottom Tab Bar -->
+  <nav class="tma-bottom-nav" aria-label="Mini App menyusi">
+    <button type="button" class="nav-item active" data-view="quizzes" onclick="tmaSwitchView('quizzes')">
+      <span class="ico">📝</span>
+      <span>Testlar</span>
+    </button>
+    <button type="button" class="nav-item" data-view="stats" onclick="tmaSwitchView('stats')">
+      <span class="ico">📊</span>
+      <span>Statistikam</span>
+    </button>
+    <button type="button" class="nav-item" data-view="leaderboard" onclick="tmaSwitchView('leaderboard')">
+      <span class="ico">🏆</span>
+      <span>Reyting</span>
+    </button>
+  </nav>
+
+  <script>
+    "use strict";
+
+    const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+    }
+
+    const tmaState = {
+      identity: {
+        telegram_id: 999000111,
+        full_name: "Mini App Foydalanuvchi",
+        username: "",
+      },
+      user: null,
+      attempts: [],
+      quizzes: [],
+      leaderboard: [],
+      runner: null,
+      timerHandle: null,
+    };
+
+    function detectIdentity() {
+      const params = new URLSearchParams(window.location.search);
+      const tgUser = tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user : null;
+      if (tgUser && tgUser.id) {
+        const fullName = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" ") || "Telegram User";
+        tmaState.identity = {
+          telegram_id: Number(tgUser.id),
+          full_name: fullName,
+          username: tgUser.username || "",
+        };
+        return;
+      }
+      if (params.get("tg_id")) {
+        tmaState.identity = {
+          telegram_id: Number(params.get("tg_id")) || 999000111,
+          full_name: params.get("name") || "Mini App Foydalanuvchi",
+          username: params.get("username") || "",
+        };
+      }
+    }
+
+    function esc(text) {
+      const d = document.createElement("div");
+      d.textContent = String(text ?? "");
+      return d.innerHTML;
+    }
+
+    function fmtTime(seconds) {
+      const s = Math.max(0, Number(seconds) || 0);
+      return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+    }
+
+    function hapticImpact(style = "light") {
+      try {
+        if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred(style);
+      } catch {}
+    }
+
+    async function tmaApi(url, body) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Xatolik yuz berdi");
+      return data;
+    }
+
+    async function tmaLoadInit() {
+      detectIdentity();
+      const data = await tmaApi("/api/webapp/init", tmaState.identity);
+      tmaState.user = data.user;
+      tmaState.attempts = data.attempts || [];
+      tmaState.quizzes = data.quizzes || [];
+      tmaState.leaderboard = data.leaderboard || [];
+      renderHeader();
+      renderQuizzes();
+      renderStats();
+      renderLeaderboard();
+    }
+
+    function renderHeader() {
+      const u = tmaState.user || tmaState.identity;
+      document.getElementById("tmaUserName").textContent = u.full_name || "Foydalanuvchi";
+      document.getElementById("tmaUserXp").textContent = `${u.xp || 0} XP`;
+      document.getElementById("tmaUserRank").textContent = `Aniqlik: ${u.accuracy || 0}% · Testlar: ${u.tests_completed || 0} ta`;
+      const initial = (u.full_name || "T").trim().charAt(0).toUpperCase();
+      document.getElementById("tmaAvatar").textContent = initial || "🦉";
+    }
+
+    function renderQuizzes() {
+      const wrap = document.getElementById("tmaQuizzesList");
+      if (!tmaState.quizzes.length) {
+        wrap.innerHTML = `<div class="tma-card"><p class="muted">Hozircha faol testlar yo'q.</p></div>`;
+        return;
+      }
+      wrap.innerHTML = tmaState.quizzes
+        .map(
+          (q) => `
+          <div class="tma-card">
+            <div class="row-between">
+              <span class="badge">${esc(q.category_icon)} ${esc(q.category_name)}</span>
+              <span class="badge mono">#${esc(q.code)}</span>
+            </div>
+            <h2 style="margin-top:8px;">${esc(q.title)}</h2>
+            <p class="muted">${esc(q.description || "1-savoldan oxirigacha ishlang va darhol natijani biling.")}</p>
+            <div class="quiz-meta">
+              <span>❓ ${q.question_count} ta savol</span>
+              <span>⏱ ${fmtTime(q.time_limit_sec)}</span>
+            </div>
+            <div class="btn-grid-2">
+              <button type="button" class="btn btn-primary" onclick="tmaStartQuiz(${q.id}, 'practice')">▶️ Boshlash (1–${q.question_count})</button>
+              <button type="button" class="btn btn-ghost" onclick="tmaStartQuiz(${q.id}, 'exam')">🎓 Imtihon</button>
+            </div>
+          </div>`
+        )
+        .join("");
+    }
+
+    function renderStats() {
+      const u = tmaState.user || {};
+      document.getElementById("tmaStatsGrid").innerHTML = `
+        <div class="kpi-box"><div class="val">${u.xp || 0} XP</div><div class="lbl">Jami ball</div></div>
+        <div class="kpi-box"><div class="val">${u.tests_completed || 0} ta</div><div class="lbl">Ishlangan testlar</div></div>
+        <div class="kpi-box"><div class="val">${u.accuracy || 0}%</div><div class="lbl">O'rtacha aniqlik</div></div>
+        <div class="kpi-box"><div class="val">${u.correct_answers || 0}/${u.total_questions || 0}</div><div class="lbl">To'g'ri javoblar</div></div>
+      `;
+      const attWrap = document.getElementById("tmaMyAttempts");
+      if (!tmaState.attempts.length) {
+        attWrap.innerHTML = `<p class="muted" style="margin-top:8px;">Hali test ishlanmagan.</p>`;
+        return;
+      }
+      attWrap.innerHTML = tmaState.attempts
+        .map(
+          (a) => `
+          <div class="row-between" style="padding:9px 0; border-bottom:1px solid var(--border);">
+            <div>
+              <strong style="font-size:0.88rem;">${esc(a.quiz_title)}</strong>
+              <div class="muted">${a.mode === "practice" ? "⚡️ Mashq" : "🎓 Imtihon"} · ${fmtTime(a.duration_sec)}</div>
+            </div>
+            <span class="badge">${a.is_completed ? `${a.percentage}% (✅${a.correct_count})` : "⏳ Jarayonda"}</span>
+          </div>`
+        )
+        .join("");
+    }
+
+    function renderLeaderboard() {
+      const wrap = document.getElementById("tmaLeaderboardList");
+      if (!tmaState.leaderboard.length) {
+        wrap.innerHTML = `<p class="muted" style="margin-top:8px;">Reytingda hali ishtirokchilar yo'q.</p>`;
+        return;
+      }
+      const medals = ["🥇", "🥈", "🥉"];
+      wrap.innerHTML = tmaState.leaderboard
+        .map(
+          (r, i) => `
+          <div class="row-between" style="padding:10px 0; border-bottom:1px solid var(--border);">
+            <div>
+              <strong>${medals[i] || `${i + 1}.`} ${esc(r.full_name)}</strong>
+              <div class="muted">Testlar: ${r.tests_completed} ta · Aniqlik: ${r.accuracy}%</div>
+            </div>
+            <span class="xp-pill">${r.xp} XP</span>
+          </div>`
+        )
+        .join("");
+    }
+
+    function tmaSwitchView(view) {
+      document.querySelectorAll(".nav-item").forEach((b) => {
+        b.classList.toggle("active", b.dataset.view === view);
+      });
+      document.getElementById("tmaViewQuizzes").classList.toggle("hidden", view !== "quizzes");
+      document.getElementById("tmaViewStats").classList.toggle("hidden", view !== "stats");
+      document.getElementById("tmaViewLeaderboard").classList.toggle("hidden", view !== "leaderboard");
+    }
+
+    async function tmaStartByCode() {
+      const code = document.getElementById("tmaCodeInput").value.trim().toUpperCase();
+      if (!code) return;
+      const match = tmaState.quizzes.find((q) => q.code.toUpperCase() === code);
+      if (!match) {
+        alert(`#${code} kodi bo'yicha test topilmadi`);
+        return;
+      }
+      await tmaStartQuiz(match.id, "practice");
+    }
+
+    async function tmaStartQuiz(quizId, mode) {
+      hapticImpact("medium");
+      const data = await tmaApi("/api/webapp/start", {
+        quiz_id: quizId,
+        mode,
+        ...tmaState.identity,
+      });
+      tmaState.runner = {
+        attempt: data.attempt,
+        quiz: data.quiz,
+        questions: data.questions,
+        index: 0,
+        answers: {},
+        feedback: {},
+        startedMs: Date.now(),
+        remainingSec: data.quiz.time_limit_sec,
+      };
+      document.getElementById("tmaLobby").classList.add("hidden");
+      document.getElementById("tmaRunner").classList.remove("hidden");
+      clearInterval(tmaState.timerHandle);
+      tmaState.timerHandle = setInterval(() => {
+        if (!tmaState.runner) return;
+        const elapsed = Math.floor((Date.now() - tmaState.runner.startedMs) / 1000);
+        tmaState.runner.remainingSec = Math.max(0, tmaState.runner.quiz.time_limit_sec - elapsed);
+        const tEl = document.getElementById("tmaTimer");
+        if (tEl) tEl.textContent = fmtTime(tmaState.runner.remainingSec);
+        if (tmaState.runner.remainingSec <= 0 && tmaState.runner.attempt.mode === "exam") {
+          clearInterval(tmaState.timerHandle);
+          tmaFinishQuiz();
+        }
+      }, 1000);
+      renderTmaRunner();
+    }
+
+    function renderTmaRunner() {
+      const r = tmaState.runner;
+      if (!r) return;
+      const q = r.questions[r.index];
+      const total = r.questions.length;
+      const pct = Math.round(((r.index + 1) / total) * 100);
+      const selected = r.answers[q.id];
+      const fb = r.feedback[q.id];
+      const isPractice = r.attempt.mode === "practice";
+
+      const opts = [
+        ["A", q.option_a],
+        ["B", q.option_b],
+        ["C", q.option_c],
+        ["D", q.option_d],
+      ];
+
+      const optsHtml = opts
+        .map(([letter, text]) => {
+          let cls = "opt-btn";
+          if (fb) {
+            if (letter === fb.correct_option) cls += " correct";
+            else if (letter === fb.selected_option) cls += " wrong";
+          } else if (selected === letter) {
+            cls += " selected";
+          }
+          const disabled = isPractice && fb ? "disabled" : "";
+          const isCorr = letter === q.correct_option;
+          return `
+            <button type="button" class="${cls}" ${disabled} onclick="tmaSelectOption(${q.id}, '${letter}')">
+              <span class="opt-letter">${letter}</span>
+              <span>${esc(text)}${isCorr ? " ✅" : ""}</span>
+            </button>`;
+        })
+        .join("");
+
+      const fbHtml = fb
+        ? `<div class="fb-box">
+            <strong>${fb.is_correct ? "✅ To'g'ri javob!" : `❌ Noto'g'ri! To'g'ri javob: ${fb.correct_option}`}</strong>
+            ${fb.explanation ? `<div class="muted" style="margin-top:4px;">💡 ${esc(fb.explanation)}</div>` : ""}
+          </div>`
+        : "";
+
+      const dotsHtml = r.questions
+        .map(
+          (item, idx) =>
+            `<button type="button" class="dot-btn ${idx === r.index ? "active" : ""} ${r.answers[item.id] ? "answered" : ""}" onclick="tmaJump(${idx})">${idx + 1}</button>`
+        )
+        .join("");
+
+      document.getElementById("tmaRunner").innerHTML = `
+        <div class="tma-card">
+          <div class="row-between">
+            <span class="badge">${esc(r.quiz.title)} (${r.index + 1}/${total})</span>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <span class="badge mono">⏱ <span id="tmaTimer">${fmtTime(r.remainingSec)}</span></span>
+              <button type="button" class="btn btn-danger" style="padding:5px 10px; font-size:0.76rem;" onclick="tmaFinishQuiz()">🚪 Yakunlash</button>
+            </div>
+          </div>
+
+          <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+
+          <h3 style="margin-top:10px; line-height:1.45;">${r.index + 1}. ${esc(q.question_text)}</h3>
+          <div class="opt-list">${optsHtml}</div>
+          ${fbHtml}
+
+          <div class="btn-grid-2" style="margin-top:14px;">
+            <button type="button" class="btn btn-ghost" ${r.index === 0 ? "disabled" : ""} onclick="tmaJump(${r.index - 1})">⬅️ Oldingi</button>
+            ${
+              r.index + 1 < total
+                ? `<button type="button" class="btn btn-primary" onclick="tmaJump(${r.index + 1})">Keyingi ➡️</button>`
+                : `<button type="button" class="btn btn-primary" onclick="tmaFinishQuiz()">🏁 Natijani ko'rish</button>`
+            }
+          </div>
+
+          <div class="dots-strip">${dotsHtml}</div>
+        </div>
+      `;
+    }
+
+    async function tmaSelectOption(questionId, letter) {
+      const r = tmaState.runner;
+      if (!r) return;
+      if (r.attempt.mode === "practice" && r.feedback[questionId]) return;
+      hapticImpact("light");
+      r.answers[questionId] = letter;
+      const res = await tmaApi("/api/webapp/answer", {
+        attempt_id: r.attempt.id,
+        question_id: questionId,
+        selected_option: letter,
+      });
+      if (r.attempt.mode === "practice") {
+        r.feedback[questionId] = res;
+      }
+      renderTmaRunner();
+    }
+
+    function tmaJump(idx) {
+      const r = tmaState.runner;
+      if (!r) return;
+      r.index = Math.max(0, Math.min(idx, r.questions.length - 1));
+      renderTmaRunner();
+    }
+
+    async function tmaFinishQuiz() {
+      clearInterval(tmaState.timerHandle);
+      const r = tmaState.runner;
+      if (!r) return;
+      const dur = Math.max(1, Math.floor((Date.now() - r.startedMs) / 1000));
+      const res = await tmaApi("/api/webapp/finish", {
+        attempt_id: r.attempt.id,
+        duration_sec: dur,
+      });
+      tmaState.runner = null;
+      await tmaLoadInit();
+      const att = res.attempt;
+      document.getElementById("tmaRunner").innerHTML = `
+        <div class="tma-card">
+          <span class="badge">🎉 Test yakunlandi</span>
+          <h2 style="margin-top:8px;">${esc(res.quiz.title)}</h2>
+          <div class="kpi-2x2" style="margin-top:12px;">
+            <div class="kpi-box"><div class="val">${att.percentage}%</div><div class="lbl">Natija</div></div>
+            <div class="kpi-box"><div class="val">✅ ${att.correct_count} / ❌ ${att.wrong_count}</div><div class="lbl">To'g'ri / Xato</div></div>
+            <div class="kpi-box"><div class="val">${att.score} ball</div><div class="lbl">To'plangan ball</div></div>
+            <div class="kpi-box"><div class="val">${fmtTime(att.duration_sec)}</div><div class="lbl">Sarflangan vaqt</div></div>
+          </div>
+          <button type="button" class="btn btn-primary btn-full" onclick="tmaCloseRunner()">🏠 Testlar ro'yxatiga qaytish</button>
+        </div>
+      `;
+    }
+
+    function tmaCloseRunner() {
+      document.getElementById("tmaRunner").classList.add("hidden");
+      document.getElementById("tmaLobby").classList.remove("hidden");
+    }
+
+    window.addEventListener("DOMContentLoaded", tmaLoadInit);
+  </script>
+</body>
+</html>

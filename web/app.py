@@ -236,6 +236,20 @@ class BroadcastRequest(BaseModel):
     telegram_id: int | None = None
 
 
+class WebAppInitRequest(BaseModel):
+    telegram_id: int = 999000111
+    full_name: str = "Telegram Foydalanuvchi"
+    username: str = ""
+
+
+class WebAppQuizStart(BaseModel):
+    quiz_id: int
+    mode: str = "practice"
+    telegram_id: int = 999000111
+    full_name: str = "Telegram Foydalanuvchi"
+    username: str = ""
+
+
 # ---------------------------------------------------------------------------
 # Pages & Authentication
 # ---------------------------------------------------------------------------
@@ -243,6 +257,12 @@ class BroadcastRequest(BaseModel):
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request) -> HTMLResponse:
     return TEMPLATES.TemplateResponse(request, "index.html")
+
+
+@app.get("/webapp", response_class=HTMLResponse)
+@app.get("/miniapp", response_class=HTMLResponse)
+async def webapp_page(request: Request) -> HTMLResponse:
+    return TEMPLATES.TemplateResponse(request, "webapp.html")
 
 
 @app.post("/api/auth/login")
@@ -730,6 +750,116 @@ async def api_web_quiz_finish(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     quiz = await db.get_quiz(int(attempt["quiz_id"]))
     review_items = await db.get_attempt_review_items(payload.attempt_id, wrong_only=False)
+    return {"attempt": attempt, "quiz": quiz, "review_items": review_items}
+
+
+# ---------------------------------------------------------------------------
+# Telegram Mini App (WebApp) Public Player Endpoints
+# ---------------------------------------------------------------------------
+
+@app.post("/api/webapp/init")
+async def api_webapp_init(payload: WebAppInitRequest) -> dict[str, Any]:
+    user = await db.get_or_create_user(
+        telegram_id=payload.telegram_id,
+        full_name=payload.full_name or "Telegram Foydalanuvchi",
+        username=payload.username or "",
+    )
+    stats = await db.get_user_stats(payload.telegram_id)
+    attempts = await db.list_user_attempts(int(user["id"]), limit=20)
+    categories = await db.list_categories(active_only=True)
+    quizzes = await db.list_quizzes(active_only=True)
+    leaderboard = await db.get_leaderboard(limit=20)
+    return {
+        "user": stats or user,
+        "attempts": attempts,
+        "categories": categories,
+        "quizzes": quizzes,
+        "leaderboard": leaderboard,
+    }
+
+
+@app.post("/api/webapp/start")
+async def api_webapp_start(payload: WebAppQuizStart) -> dict[str, Any]:
+    quiz = await db.get_quiz(payload.quiz_id)
+    if not quiz:
+        raise HTTPException(status_code=404, detail="Test topilmadi")
+    questions = await db.list_questions(payload.quiz_id)
+    if not questions:
+        raise HTTPException(status_code=400, detail="Ushbu testda savollar mavjud emas")
+
+    user = await db.get_or_create_user(
+        telegram_id=payload.telegram_id,
+        full_name=payload.full_name or "Telegram Foydalanuvchi",
+        username=payload.username or "",
+    )
+    attempt = await db.create_attempt(int(user["id"]), payload.quiz_id, mode=payload.mode)
+    mode_lbl = "Imtihon rejimi" if payload.mode == "exam" else "Mashq rejimi"
+    await db.log_chat_message(
+        telegram_id=payload.telegram_id,
+        sender="user",
+        content=f"📱 Mini App: {quiz['title']} (#{quiz['code']} · {mode_lbl}) boshlandi",
+        action_type="callback",
+    )
+    safe_questions = [
+        {
+            "id": q["id"],
+            "question_text": q["question_text"],
+            "option_a": q["option_a"],
+            "option_b": q["option_b"],
+            "option_c": q["option_c"],
+            "option_d": q["option_d"],
+            "correct_option": q["correct_option"],
+            "points": q["points"],
+            "order_num": q["order_num"],
+        }
+        for q in questions
+    ]
+    return {"attempt": attempt, "quiz": quiz, "questions": safe_questions}
+
+
+@app.post("/api/webapp/answer")
+async def api_webapp_answer(payload: WebQuizAnswer) -> dict[str, Any]:
+    attempt = await db.get_attempt(payload.attempt_id)
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Urinish topilmadi")
+    if attempt["is_completed"]:
+        raise HTTPException(status_code=400, detail="Test allaqachon yakunlangan")
+    result = await db.save_attempt_answer(
+        payload.attempt_id, payload.question_id, payload.selected_option
+    )
+    user = await db.get_user_by_id(int(attempt["user_id"]))
+    if user:
+        await db.log_chat_message(
+            telegram_id=int(user["telegram_id"]),
+            sender="user",
+            content=f"📱 Mini App javob: {result['selected_option']} ({'✅ To`g`ri' if result['is_correct'] else '❌ Xato'})",
+            action_type="callback",
+        )
+    if attempt["mode"] == "exam":
+        return {"saved": True, "selected_option": result["selected_option"]}
+    return result
+
+
+@app.post("/api/webapp/finish")
+async def api_webapp_finish(payload: WebQuizFinish) -> dict[str, Any]:
+    try:
+        attempt = await db.finalize_attempt(payload.attempt_id, duration_sec=payload.duration_sec)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    quiz = await db.get_quiz(int(attempt["quiz_id"]))
+    review_items = await db.get_attempt_review_items(payload.attempt_id, wrong_only=False)
+    user = await db.get_user_by_id(int(attempt["user_id"]))
+    if user and quiz:
+        await db.log_chat_message(
+            telegram_id=int(user["telegram_id"]),
+            sender="bot",
+            content=(
+                f"📱 <b>Mini App natijasi — {quiz['title']}</b>\n"
+                f"📊 Natija: <b>{attempt['percentage']}%</b> "
+                f"(✅ To'g'ri: {attempt['correct_count']} · ❌ Xato: {attempt['wrong_count']})"
+            ),
+            action_type="reply",
+        )
     return {"attempt": attempt, "quiz": quiz, "review_items": review_items}
 
 

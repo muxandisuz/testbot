@@ -262,6 +262,45 @@ def test_fastapi_endpoints_and_simulator(tmp_path: Path, monkeypatch: pytest.Mon
             assert home.status_code == 200
             assert "TestMaster Bot Studio" in home.text
 
+            # Telegram Mini App (/webapp) is publicly accessible without studio admin login
+            webapp_page = client.get("/webapp")
+            assert webapp_page.status_code == 200
+            assert "telegram-web-app.js" in webapp_page.text
+
+            tma_init = client.post(
+                "/api/webapp/init",
+                json={"telegram_id": 777001, "full_name": "MiniApp User", "username": "tma_user"},
+            )
+            assert tma_init.status_code == 200
+            assert len(tma_init.json()["quizzes"]) == 1
+            falsafa_qid = tma_init.json()["quizzes"][0]["id"]
+
+            tma_start = client.post(
+                "/api/webapp/start",
+                json={"quiz_id": falsafa_qid, "mode": "practice", "telegram_id": 777001, "full_name": "MiniApp User"},
+            )
+            assert tma_start.status_code == 200
+            tma_att_id = tma_start.json()["attempt"]["id"]
+            tma_first_q = tma_start.json()["questions"][0]
+
+            tma_ans = client.post(
+                "/api/webapp/answer",
+                json={
+                    "attempt_id": tma_att_id,
+                    "question_id": tma_first_q["id"],
+                    "selected_option": tma_first_q["correct_option"],
+                },
+            )
+            assert tma_ans.status_code == 200
+            assert tma_ans.json()["is_correct"] is True
+
+            tma_fin = client.post(
+                "/api/webapp/finish",
+                json={"attempt_id": tma_att_id, "duration_sec": 12},
+            )
+            assert tma_fin.status_code == 200
+            assert tma_fin.json()["attempt"]["percentage"] == 100.0
+
             # Protected endpoints must reject unauthenticated requests
             assert client.get("/api/stats").status_code == 401
             assert client.get("/api/users").status_code == 401
